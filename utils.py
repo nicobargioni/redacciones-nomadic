@@ -71,35 +71,61 @@ def normalize_url(url):
     
     return url_clean
 
-def get_oauth2_credentials(credentials_file):
+def get_oauth2_credentials(credentials_file=None):
     """
-    Crea credenciales OAuth2 desde un archivo de tokens
+    Crea credenciales OAuth2 desde Streamlit secrets o archivo local
     """
     try:
-        with open(credentials_file, 'r') as f:
-            token_data = json.load(f)
-        
-        # Crear credenciales desde el token
-        credentials = Credentials(
-            token=token_data.get('token'),
-            refresh_token=token_data.get('refresh_token'),
-            token_uri=token_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
-            client_id=token_data.get('client_id'),
-            client_secret=token_data.get('client_secret'),
-            scopes=token_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
-        )
-        
-        # Refrescar el token si es necesario
-        if credentials.expired and credentials.refresh_token:
-            logger.info("Refrescando token OAuth2...")
-            credentials.refresh(Request())
+        # Intentar primero con Streamlit secrets
+        if hasattr(st, 'secrets') and 'google_oauth' in st.secrets:
+            logger.info("Usando credenciales desde Streamlit secrets")
+            oauth_config = st.secrets['google_oauth']
             
-            # Guardar el nuevo token
-            token_data['token'] = credentials.token
-            with open(credentials_file, 'w') as f:
-                json.dump(token_data, f, indent=2)
-        
-        return credentials
+            credentials = Credentials(
+                token=oauth_config.get('access_token'),
+                refresh_token=oauth_config['refresh_token'],
+                token_uri='https://oauth2.googleapis.com/token',
+                client_id=oauth_config['client_id'],
+                client_secret=oauth_config['client_secret'],
+                scopes=['https://www.googleapis.com/auth/analytics.readonly']
+            )
+            
+            # Refrescar si es necesario
+            if credentials.expired and credentials.refresh_token:
+                logger.info("Refrescando token OAuth2...")
+                credentials.refresh(Request())
+            
+            return credentials
+            
+        # Fallback a archivo local para desarrollo
+        elif credentials_file and os.path.exists(credentials_file):
+            logger.info(f"Usando credenciales desde archivo: {credentials_file}")
+            with open(credentials_file, 'r') as f:
+                token_data = json.load(f)
+            
+            credentials = Credentials(
+                token=token_data.get('token'),
+                refresh_token=token_data.get('refresh_token'),
+                token_uri=token_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+                client_id=token_data.get('client_id'),
+                client_secret=token_data.get('client_secret'),
+                scopes=token_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
+            )
+            
+            if credentials.expired and credentials.refresh_token:
+                logger.info("Refrescando token OAuth2...")
+                credentials.refresh(Request())
+                
+                # Guardar el nuevo token
+                token_data['token'] = credentials.token
+                with open(credentials_file, 'w') as f:
+                    json.dump(token_data, f, indent=2)
+            
+            return credentials
+        else:
+            logger.error("No se encontraron credenciales válidas")
+            return None
+            
     except Exception as e:
         logger.error(f"Error creando credenciales OAuth2: {e}")
         return None
@@ -233,10 +259,15 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
 @st.cache_data(ttl=300)
 def load_google_sheet_data():
     """
-    Carga los datos del Google Sheet público
+    Carga los datos del Google Sheet público usando Streamlit secrets o valor por defecto
     """
     try:
-        spreadsheet_id = '1bT6C0VI_U7IEmI-ULPHJEvaOkL1mgCozWJIxdNavKBc'
+        # Obtener spreadsheet_id desde secrets o usar valor por defecto
+        if hasattr(st, 'secrets') and 'google_analytics' in st.secrets:
+            spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1bT6C0VI_U7IEmI-ULPHJEvaOkL1mgCozWJIxdNavKBc')
+        else:
+            spreadsheet_id = '1bT6C0VI_U7IEmI-ULPHJEvaOkL1mgCozWJIxdNavKBc'
+            
         public_url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
         
         df = pd.read_csv(public_url)
@@ -326,8 +357,39 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
 
 def create_media_config():
     """
-    Retorna la configuración de cada medio
+    Retorna la configuración de cada medio usando Streamlit secrets o valores por defecto
     """
+    # Intentar obtener Property IDs desde secrets
+    try:
+        if hasattr(st, 'secrets') and 'google_analytics' in st.secrets:
+            ga_config = st.secrets['google_analytics']
+            return {
+                'clarin': {
+                    'name': 'Clarín',
+                    'domain': 'clarin.com',
+                    'property_id': ga_config.get('clarin_property_id', '287171418'),
+                    'icon': '📰',
+                    'color': '#1e88e5'
+                },
+                'ole': {
+                    'name': 'Olé',
+                    'domain': 'ole.com.ar',
+                    'property_id': ga_config.get('ole_property_id', '151714594'),
+                    'icon': '⚽',
+                    'color': '#43a047'
+                },
+                'okdiario': {
+                    'name': 'OK Diario',
+                    'domain': 'okdiario.com',
+                    'property_id': ga_config.get('okdiario_property_id', '255037852'),
+                    'icon': '🗞️',
+                    'color': '#e53935'
+                }
+            }
+    except:
+        pass
+    
+    # Valores por defecto
     return {
         'clarin': {
             'name': 'Clarín',
