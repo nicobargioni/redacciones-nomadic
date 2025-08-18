@@ -214,10 +214,146 @@ else:
         
         st.markdown("---")
         
+        # Obtener datos de GA4 sin filtros para KPI (tráfico total del mes)
+        from datetime import datetime
+        current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
+        current_month_today = datetime.now().strftime('%Y-%m-%d')
+        
+        ga4_monthly_df = get_ga4_data(
+            media_config['property_id'],
+            credentials_file,
+            start_date=current_month_start,
+            end_date=current_month_today
+        )
+        
+        # Calcular tráfico total del mes sin filtros
+        total_monthly_pageviews = 0
+        if ga4_monthly_df is not None and not ga4_monthly_df.empty:
+            total_monthly_pageviews = ga4_monthly_df['screenPageViews'].sum()
+        
         # Tabs para diferentes vistas
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Datos", "📊 Análisis de Tráfico", "🔝 Top Páginas", "📈 Tendencias", "👤 Performance por Autor"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
         
         with tab1:
+            st.subheader("📊 KPI Mensual - OK Diario")
+            
+            # Descripción del KPI
+            st.markdown("""
+            ### 🎯 Objetivo del Mes
+            **Meta:** 3,000,000 de Page Views
+            
+            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico total en OK Diario. 
+            Se considera todo el tráfico sin filtros aplicados, proporcionando una vista global del rendimiento del sitio.
+            """)
+            
+            # Configuración del KPI
+            monthly_goal = 3000000  # 3 millones de Page Views
+            current_progress = total_monthly_pageviews
+            progress_percentage = (current_progress / monthly_goal) * 100 if monthly_goal > 0 else 0
+            
+            # Métricas principales del KPI
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric(
+                    "🎯 Objetivo Mensual", 
+                    f"{monthly_goal:,}",
+                    help="Meta de Page Views para este mes"
+                )
+            
+            with col2:
+                st.metric(
+                    "📈 Progreso Actual", 
+                    f"{current_progress:,}",
+                    delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
+                    help="Page Views acumulados en lo que va del mes"
+                )
+            
+            with col3:
+                st.metric(
+                    "📊 % Completado", 
+                    f"{progress_percentage:.1f}%",
+                    help="Porcentaje del objetivo alcanzado"
+                )
+            
+            # Gráfico de progreso
+            st.markdown("---")
+            
+            # Crear gráfico de gauge/progreso
+            import plotly.graph_objects as go
+            
+            fig = go.Figure(go.Indicator(
+                mode = "gauge+number+delta",
+                value = current_progress,
+                domain = {'x': [0, 1], 'y': [0, 1]},
+                title = {'text': "Progreso hacia Objetivo Mensual"},
+                delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
+                gauge = {
+                    'axis': {'range': [None, monthly_goal * 1.2]},
+                    'bar': {'color': media_config['color']},
+                    'steps': [
+                        {'range': [0, monthly_goal * 0.5], 'color': "lightgray"},
+                        {'range': [monthly_goal * 0.5, monthly_goal * 0.8], 'color': "yellow"},
+                        {'range': [monthly_goal * 0.8, monthly_goal], 'color': "lightgreen"}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': monthly_goal
+                    }
+                }
+            ))
+            
+            fig.update_layout(
+                height=400,
+                font={'color': "darkblue", 'family': "Arial"}
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Información adicional
+            current_date = datetime.now()
+            days_in_month = current_date.day
+            
+            # Calcular días totales del mes actual
+            if current_date.month == 12:
+                next_month = current_date.replace(year=current_date.year + 1, month=1, day=1)
+            else:
+                next_month = current_date.replace(month=current_date.month + 1, day=1)
+            
+            days_total_month = (next_month - timedelta(days=1)).day
+            daily_average = current_progress / days_in_month if days_in_month > 0 else 0
+            projected_monthly = daily_average * days_total_month
+            
+            st.markdown("### 📈 Análisis de Tendencia")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric(
+                    "📅 Días Transcurridos", 
+                    f"{days_in_month}/{days_total_month}",
+                    help="Días transcurridos del mes actual"
+                )
+            
+            with col2:
+                st.metric(
+                    "📊 Promedio Diario", 
+                    f"{daily_average:,.0f}",
+                    help="Page Views promedio por día en lo que va del mes"
+                )
+            
+            with col3:
+                projection_delta = projected_monthly - monthly_goal
+                st.metric(
+                    "🔮 Proyección Mensual", 
+                    f"{projected_monthly:,.0f}",
+                    delta=f"{projection_delta:,.0f}",
+                    delta_color="normal" if projection_delta >= 0 else "inverse",
+                    help="Estimación de Page Views al final del mes según tendencia actual"
+                )
+        
+        with tab2:
             st.subheader("📋 Datos Combinados (Sheet + GA4)")
             
             # Búsqueda
@@ -259,7 +395,7 @@ else:
                 mime="text/csv"
             )
         
-        with tab2:
+        with tab3:
             st.subheader("📊 Análisis de Tráfico")
             
             # Top 10 páginas por sesiones
