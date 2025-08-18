@@ -214,7 +214,7 @@ else:
         
         st.markdown("---")
         
-        # Obtener datos de GA4 sin filtros para KPI (tráfico total del mes)
+        # Obtener datos de GA4 para KPI (solo URLs del Sheet del mes actual)
         from datetime import datetime
         current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
         current_month_today = datetime.now().strftime('%Y-%m-%d')
@@ -226,10 +226,13 @@ else:
             end_date=current_month_today
         )
         
-        # Calcular tráfico total del mes sin filtros
+        # Calcular Page Views solo de URLs que están en el Sheet
         total_monthly_pageviews = 0
-        if ga4_monthly_df is not None and not ga4_monthly_df.empty:
-            total_monthly_pageviews = ga4_monthly_df['screenPageViews'].sum()
+        if ga4_monthly_df is not None and not ga4_monthly_df.empty and not sheets_filtered.empty:
+            # Mergear GA4 mensual con URLs del Sheet para obtener solo artículos registrados
+            merged_monthly = merge_sheets_with_ga4(sheets_filtered, ga4_monthly_df, media_config['domain'])
+            if not merged_monthly.empty and 'screenPageViews' in merged_monthly.columns:
+                total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
@@ -242,8 +245,8 @@ else:
             ### 🎯 Objetivo del Mes
             **Meta:** 3,000,000 de Page Views
             
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico total en OK Diario. 
-            Se considera todo el tráfico sin filtros aplicados, proporcionando una vista global del rendimiento del sitio.
+            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de OK Diario. 
+            Se consideran únicamente las URLs registradas en el Google Sheet, proporcionando una vista específica del rendimiento editorial.
             """)
             
             # Configuración del KPI
@@ -266,7 +269,7 @@ else:
                     "📈 Progreso Actual", 
                     f"{current_progress:,}",
                     delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
-                    help="Page Views acumulados en lo que va del mes"
+                    help="Page Views acumulados en lo que va del mes (solo artículos del Sheet)"
                 )
             
             with col3:
@@ -286,7 +289,7 @@ else:
                 mode = "gauge+number+delta",
                 value = current_progress,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Progreso hacia Objetivo Mensual"},
+                title = {'text': "Progreso hacia Objetivo Mensual (Artículos del Sheet)"},
                 delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
                 gauge = {
                     'axis': {'range': [None, monthly_goal * 1.2]},
