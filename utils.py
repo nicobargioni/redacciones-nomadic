@@ -167,8 +167,10 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
     Determina automáticamente qué cuenta usar según la propiedad
     """
     try:
-        # Usar la misma cuenta para todos los medios por ahora
-        account_type = "medios"  # Usar la cuenta que funciona para todos
+        # Determinar qué tipo de cuenta usar según la propiedad
+        account_type = "acceso"  # Por defecto para Clarín y Olé
+        if property_id == "255037852":  # Solo OK Diario
+            account_type = "medios"
         
         # Intentar primero con archivo local (como antes)
         if credentials_file and os.path.exists(credentials_file):
