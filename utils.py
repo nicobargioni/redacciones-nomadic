@@ -168,8 +168,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
     """
     try:
         # Determinar qué tipo de cuenta usar según la propiedad
-        account_type = "acceso"  # Por defecto para Clarín
-        if property_id in ["151714594", "255037852"]:  # Olé y OK Diario
+        account_type = "acceso"  # Por defecto para Clarín y Olé
+        if property_id == "255037852":  # Solo OK Diario
             account_type = "medios"
         
         # Intentar primero con archivo local (como antes)
