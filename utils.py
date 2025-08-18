@@ -159,13 +159,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         if property_id in ["151714594", "255037852"]:  # Olé y OK Diario
             account_type = "medios"
         
-        # Intentar primero con Streamlit secrets
-        if hasattr(st, 'secrets'):
-            logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
-            client = get_ga4_client_oauth(credentials_file, account_type)
-        
-        # Fallback a archivo local
-        elif credentials_file and os.path.exists(credentials_file):
+        # Intentar primero con archivo local (como antes)
+        if credentials_file and os.path.exists(credentials_file):
             with open(credentials_file, 'r') as f:
                 cred_data = json.load(f)
             
@@ -182,6 +177,11 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
                     scopes=["https://www.googleapis.com/auth/analytics.readonly"]
                 )
                 client = BetaAnalyticsDataClient(credentials=credentials)
+        
+        # Fallback a Streamlit secrets
+        elif hasattr(st, 'secrets'):
+            logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
+            client = get_ga4_client_oauth(credentials_file, account_type)
         else:
             logger.error("No se encontraron credenciales válidas")
             return None

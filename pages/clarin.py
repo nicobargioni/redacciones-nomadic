@@ -82,8 +82,8 @@ if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Usar archivo de credenciales correcto para Clarín
-credentials_file = "credentials_analytics_acceso.json"
+# Usar archivo de credenciales de medios (funciona para todas las propiedades)
+credentials_file = "credentials_analytics_acceso_medios.json"
 
 # Cargar datos
 with st.spinner('Cargando datos...'):
