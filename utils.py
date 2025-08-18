@@ -240,16 +240,22 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         
         # Agregar filtro de país si se especifica
         if country_filter:
-            from google.analytics.data_v1beta.types import FilterExpression, Filter
-            request.dimension_filter = FilterExpression(
-                filter=Filter(
-                    field_name="country",
-                    string_filter=Filter.StringFilter(
-                        match_type=Filter.StringFilter.MatchType.EXACT,
-                        value=country_filter
+            try:
+                from google.analytics.data_v1beta.types import FilterExpression, Filter
+                request.dimension_filter = FilterExpression(
+                    filter=Filter(
+                        field_name="country",
+                        string_filter=Filter.StringFilter(
+                            match_type=Filter.StringFilter.MatchType.EXACT,
+                            value=country_filter
+                        )
                     )
                 )
-            )
+                logger.info(f"Aplicando filtro de país: {country_filter}")
+            except Exception as filter_error:
+                logger.error(f"Error aplicando filtro de país: {filter_error}")
+                # Continuar sin filtro si hay error
+                pass
         
         # Ejecutar el reporte
         logger.info(f"Consultando GA4 property {property_id}..." + (f" con filtro de país: {country_filter}" if country_filter else ""))

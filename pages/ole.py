@@ -220,12 +220,12 @@ else:
         current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
         current_month_today = datetime.now().strftime('%Y-%m-%d')
         
-        ga4_monthly_us_df = get_ga4_data_with_country(
+        # Obtener datos de GA4 sin filtro geográfico por ahora (fallback)
+        ga4_monthly_us_df = get_ga4_data(
             media_config['property_id'],
             credentials_file,
             start_date=current_month_start,
-            end_date=current_month_today,
-            country_filter="United States"
+            end_date=current_month_today
         )
         
         # Calcular Page Views desde Estados Unidos solo de URLs que están en el Sheet
@@ -247,9 +247,11 @@ else:
             ### 🎯 Objetivo del Mes
             **Meta:** 1,500,000 de Page Views desde Estados Unidos
             
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico desde Estados Unidos en artículos de Olé. 
-            Se consideran únicamente las URLs registradas en el Google Sheet y el tráfico proveniente de Estados Unidos, 
-            proporcionando una vista específica del rendimiento editorial en el mercado estadounidense.
+            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de Olé. 
+            Se consideran únicamente las URLs registradas en el Google Sheet, 
+            proporcionando una vista específica del rendimiento editorial.
+            
+            ⚠️ **Nota**: Filtro geográfico de Estados Unidos en desarrollo. Actualmente muestra tráfico total.
             """)
             
             # Configuración del KPI
@@ -272,7 +274,7 @@ else:
                     "🇺🇸 Progreso Actual", 
                     f"{current_progress_us:,}",
                     delta=f"{current_progress_us - monthly_goal_us:,}" if current_progress_us >= monthly_goal_us else None,
-                    help="Page Views acumulados desde Estados Unidos en lo que va del mes (solo artículos del Sheet)"
+                    help="Page Views acumulados en lo que va del mes (solo artículos del Sheet) - Filtro USA en desarrollo"
                 )
             
             with col3:
@@ -292,7 +294,7 @@ else:
                 mode = "gauge+number+delta",
                 value = current_progress_us,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Progreso hacia Objetivo Mensual USA (Artículos del Sheet)"},
+                title = {'text': "Progreso hacia Objetivo Mensual (Artículos del Sheet)"},
                 delta = {'reference': monthly_goal_us, 'valueformat': ',.0f'},
                 gauge = {
                     'axis': {'range': [None, monthly_goal_us * 1.2]},
