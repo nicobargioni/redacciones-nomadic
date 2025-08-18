@@ -71,15 +71,17 @@ def normalize_url(url):
     
     return url_clean
 
-def get_oauth2_credentials(credentials_file=None):
+def get_oauth2_credentials(credentials_file=None, account_type="acceso"):
     """
     Crea credenciales OAuth2 desde Streamlit secrets o archivo local
+    account_type: "acceso" para Clarín, "medios" para Olé/OK Diario
     """
     try:
         # Intentar primero con Streamlit secrets
-        if hasattr(st, 'secrets') and 'google_oauth' in st.secrets:
-            logger.info("Usando credenciales desde Streamlit secrets")
-            oauth_config = st.secrets['google_oauth']
+        secret_key = f'google_oauth_{account_type}'
+        if hasattr(st, 'secrets') and secret_key in st.secrets:
+            logger.info(f"Usando credenciales desde Streamlit secrets: {secret_key}")
+            oauth_config = st.secrets[secret_key]
             
             credentials = Credentials(
                 token=oauth_config.get('access_token'),
@@ -130,12 +132,12 @@ def get_oauth2_credentials(credentials_file=None):
         logger.error(f"Error creando credenciales OAuth2: {e}")
         return None
 
-def get_ga4_client_oauth(credentials_file):
+def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     """
     Crea un cliente de Google Analytics Data API v1beta usando OAuth2
     """
     try:
-        credentials = get_oauth2_credentials(credentials_file)
+        credentials = get_oauth2_credentials(credentials_file, account_type)
         if not credentials:
             return None
             
@@ -149,26 +151,40 @@ def get_ga4_client_oauth(credentials_file):
 def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date="today"):
     """
     Obtiene datos de Google Analytics 4 para una propiedad específica
-    Intenta primero con OAuth2, si falla intenta con cuenta de servicio
+    Determina automáticamente qué cuenta usar según la propiedad
     """
     try:
-        # Determinar tipo de credenciales
-        with open(credentials_file, 'r') as f:
-            cred_data = json.load(f)
+        # Determinar qué tipo de cuenta usar según la propiedad
+        account_type = "acceso"  # Por defecto para Clarín
+        if property_id in ["151714594", "255037852"]:  # Olé y OK Diario
+            account_type = "medios"
         
-        # Si tiene refresh_token, es OAuth2
-        if 'refresh_token' in cred_data:
-            logger.info("Usando credenciales OAuth2")
-            client = get_ga4_client_oauth(credentials_file)
+        # Intentar primero con Streamlit secrets
+        if hasattr(st, 'secrets'):
+            logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
+            client = get_ga4_client_oauth(credentials_file, account_type)
+        
+        # Fallback a archivo local
+        elif credentials_file and os.path.exists(credentials_file):
+            with open(credentials_file, 'r') as f:
+                cred_data = json.load(f)
+            
+            # Si tiene refresh_token, es OAuth2
+            if 'refresh_token' in cred_data:
+                logger.info("Usando credenciales OAuth2 desde archivo")
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                # Si no, asumimos que es cuenta de servicio
+                logger.info("Usando credenciales de cuenta de servicio")
+                from google.oauth2 import service_account
+                credentials = service_account.Credentials.from_service_account_file(
+                    credentials_file,
+                    scopes=["https://www.googleapis.com/auth/analytics.readonly"]
+                )
+                client = BetaAnalyticsDataClient(credentials=credentials)
         else:
-            # Si no, asumimos que es cuenta de servicio
-            logger.info("Usando credenciales de cuenta de servicio")
-            from google.oauth2 import service_account
-            credentials = service_account.Credentials.from_service_account_file(
-                credentials_file,
-                scopes=["https://www.googleapis.com/auth/analytics.readonly"]
-            )
-            client = BetaAnalyticsDataClient(credentials=credentials)
+            logger.error("No se encontraron credenciales válidas")
+            return None
         
         if not client:
             logger.error("No se pudo crear el cliente GA4")
