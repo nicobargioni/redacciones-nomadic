@@ -161,6 +161,157 @@ def get_ga4_client_oauth(credentials_file, account_type="acceso"):
         return None
 
 @st.cache_data(ttl=300)
+def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAgo", end_date="today", country_filter=None):
+    """
+    Obtiene datos de Google Analytics 4 para una propiedad específica con opción de filtrar por país
+    """
+    try:
+        # Determinar qué tipo de cuenta usar según la propiedad
+        account_type = "acceso"  # Por defecto para Clarín y Olé
+        if property_id == "255037852":  # Solo OK Diario
+            account_type = "medios"
+        
+        # Intentar primero con archivo local (como antes)
+        if credentials_file and os.path.exists(credentials_file):
+            with open(credentials_file, 'r') as f:
+                cred_data = json.load(f)
+            
+            # Si tiene refresh_token, es OAuth2
+            if 'refresh_token' in cred_data:
+                logger.info("Usando credenciales OAuth2 desde archivo")
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                # Si no, asumimos que es cuenta de servicio
+                logger.info("Usando credenciales de cuenta de servicio")
+                from google.oauth2 import service_account
+                credentials = service_account.Credentials.from_service_account_file(
+                    credentials_file,
+                    scopes=["https://www.googleapis.com/auth/analytics.readonly"]
+                )
+                client = BetaAnalyticsDataClient(credentials=credentials)
+        
+        # Fallback a Streamlit secrets
+        elif hasattr(st, 'secrets'):
+            secret_key = f'google_oauth_{account_type}'
+            if secret_key in st.secrets:
+                logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                logger.error(f"No se encontró la sección {secret_key} en Streamlit secrets")
+                st.error(f"🔑 Falta configurar {secret_key} en Streamlit secrets")
+                return None
+        else:
+            logger.error("No se encontraron credenciales válidas")
+            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets o archivos locales.")
+            return None
+        
+        if not client:
+            logger.error("No se pudo crear el cliente GA4")
+            return None
+        
+        # Definir dimensiones (incluyendo país si se especifica)
+        dimensions = [
+            Dimension(name="pagePath"),
+            Dimension(name="date"),
+            Dimension(name="sessionSource"),
+            Dimension(name="sessionMedium")
+        ]
+        
+        # Agregar dimensión de país si se requiere filtro
+        if country_filter:
+            dimensions.append(Dimension(name="country"))
+        
+        # Construir la request
+        request = RunReportRequest(
+            property=f"properties/{property_id}",
+            dimensions=dimensions,
+            metrics=[
+                Metric(name="sessions"),
+                Metric(name="totalUsers"),
+                Metric(name="screenPageViews"),
+                Metric(name="averageSessionDuration"),
+                Metric(name="bounceRate"),
+                Metric(name="newUsers"),
+                Metric(name="engagementRate")
+            ],
+            date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
+            limit=10000
+        )
+        
+        # Agregar filtro de país si se especifica
+        if country_filter:
+            from google.analytics.data_v1beta.types import FilterExpression, Filter
+            request.dimension_filter = FilterExpression(
+                filter=Filter(
+                    field_name="country",
+                    string_filter=Filter.StringFilter(
+                        match_type=Filter.StringFilter.MatchType.EXACT,
+                        value=country_filter
+                    )
+                )
+            )
+        
+        # Ejecutar el reporte
+        logger.info(f"Consultando GA4 property {property_id}..." + (f" con filtro de país: {country_filter}" if country_filter else ""))
+        response = client.run_report(request)
+        
+        # Convertir a DataFrame
+        data = []
+        for row in response.rows:
+            row_data = {}
+            # Dimensiones
+            for i, dimension in enumerate(response.dimension_headers):
+                row_data[dimension.name] = row.dimension_values[i].value
+            # Métricas
+            for i, metric in enumerate(response.metric_headers):
+                value = row.metric_values[i].value
+                # Convertir a número si es posible
+                try:
+                    if '.' in value:
+                        row_data[metric.name] = float(value)
+                    else:
+                        row_data[metric.name] = int(value)
+                except:
+                    row_data[metric.name] = value
+            data.append(row_data)
+        
+        df = pd.DataFrame(data)
+        
+        # Convertir fecha
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
+        
+        logger.info(f"GA4 datos obtenidos: {len(df)} filas" + (f" (filtrado por {country_filter})" if country_filter else ""))
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de GA4: {e}")
+        st.error(f"Error al obtener datos de GA4: {str(e)}")
+        
+        # Mensajes de ayuda específicos
+        if "403" in str(e) or "permission" in str(e).lower():
+            st.warning("""
+            ⚠️ **Error de permisos**
+            
+            Para OAuth2:
+            1. Verifica que la cuenta Google asociada tenga acceso a la propiedad GA4
+            2. Intenta regenerar el token de acceso
+            
+            Para cuenta de servicio:
+            1. Agrega el email de la cuenta de servicio en GA4
+            2. Admin > Property Access Management > Add users
+            """)
+        elif "401" in str(e):
+            st.warning("""
+            ⚠️ **Token expirado o inválido**
+            
+            El token de acceso puede haber expirado. 
+            Necesitas regenerar el token OAuth2.
+            """)
+        
+        return None
+
+@st.cache_data(ttl=300)
 def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date="today"):
     """
     Obtiene datos de Google Analytics 4 para una propiedad específica
