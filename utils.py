@@ -83,6 +83,14 @@ def get_oauth2_credentials(credentials_file=None, account_type="acceso"):
             logger.info(f"Usando credenciales desde Streamlit secrets: {secret_key}")
             oauth_config = st.secrets[secret_key]
             
+            # Validar que existan las claves necesarias
+            required_keys = ['client_id', 'client_secret', 'refresh_token']
+            for key in required_keys:
+                if key not in oauth_config:
+                    logger.error(f"Falta la clave {key} en {secret_key}")
+                    st.error(f"🔑 Falta configurar {key} en {secret_key}")
+                    return None
+            
             credentials = Credentials(
                 token=oauth_config.get('access_token'),
                 refresh_token=oauth_config['refresh_token'],
@@ -93,9 +101,14 @@ def get_oauth2_credentials(credentials_file=None, account_type="acceso"):
             )
             
             # Refrescar si es necesario
-            if credentials.expired and credentials.refresh_token:
-                logger.info("Refrescando token OAuth2...")
-                credentials.refresh(Request())
+            try:
+                if credentials.expired and credentials.refresh_token:
+                    logger.info("Refrescando token OAuth2...")
+                    credentials.refresh(Request())
+            except Exception as refresh_error:
+                logger.error(f"Error refrescando token: {refresh_error}")
+                st.error(f"🔑 Error refrescando token: {refresh_error}")
+                return None
             
             return credentials
             
@@ -180,10 +193,17 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         
         # Fallback a Streamlit secrets
         elif hasattr(st, 'secrets'):
-            logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
-            client = get_ga4_client_oauth(credentials_file, account_type)
+            secret_key = f'google_oauth_{account_type}'
+            if secret_key in st.secrets:
+                logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                logger.error(f"No se encontró la sección {secret_key} en Streamlit secrets")
+                st.error(f"🔑 Falta configurar {secret_key} en Streamlit secrets")
+                return None
         else:
             logger.error("No se encontraron credenciales válidas")
+            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets o archivos locales.")
             return None
         
         if not client:
