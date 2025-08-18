@@ -355,6 +355,21 @@ else:
                     delta_color="normal" if projection_delta >= 0 else "inverse",
                     help="Estimación de Page Views al final del mes según tendencia actual"
                 )
+            
+            # Disclaimer sobre el cálculo de proyección
+            st.markdown("---")
+            st.info(f"""
+            **📋 Metodología de Proyección:**
+            
+            • **Promedio Diario**: {daily_average:,.0f} Page Views (total acumulado ÷ {days_in_month} días transcurridos)
+            
+            • **Fórmula**: Promedio Diario × {days_total_month} días del mes = {projected_monthly:,.0f} Page Views proyectados
+            
+            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement se mantiene constante. 
+            Los fines de semana, feriados, eventos especiales o cambios en la estrategia editorial pueden afectar el resultado final.
+            
+            • **Solo URLs del Sheet**: Se consideran únicamente los artículos registrados en el Google Sheet, no todo el tráfico del sitio.
+            """)
         
         with tab2:
             st.subheader("📋 Datos Combinados (Sheet + GA4)")
