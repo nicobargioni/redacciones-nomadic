@@ -215,168 +215,11 @@ else:
         
         st.markdown("---")
         
-        # Obtener datos de GA4 para KPI de Estados Unidos (solo URLs del Sheet del mes actual)
-        from datetime import datetime
-        current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
-        current_month_today = datetime.now().strftime('%Y-%m-%d')
-        
-        ga4_monthly_us_df = get_ga4_data_with_country(
-            media_config['property_id'],
-            credentials_file,
-            start_date=current_month_start,
-            end_date=current_month_today,
-            country_filter="United States"
-        )
-        
-        # Calcular Page Views desde Estados Unidos solo de URLs que están en el Sheet
-        total_monthly_pageviews_us = 0
-        if ga4_monthly_us_df is not None and not ga4_monthly_us_df.empty and not sheets_filtered.empty:
-            # Mergear GA4 mensual de Estados Unidos con URLs del Sheet
-            merged_monthly_us = merge_sheets_with_ga4(sheets_filtered, ga4_monthly_us_df, media_config['domain'])
-            if not merged_monthly_us.empty and 'screenPageViews' in merged_monthly_us.columns:
-                total_monthly_pageviews_us = merged_monthly_us['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI USA", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
         
         with tab1:
-            st.subheader("🇺🇸 KPI Mensual Estados Unidos - Olé")
-            
-            # Descripción del KPI
-            st.markdown("""
-            ### 🎯 Objetivo del Mes
-            **Meta:** 1,500,000 de Page Views desde Estados Unidos
-            
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico desde Estados Unidos en artículos de Olé. 
-            Se consideran únicamente las URLs registradas en el Google Sheet y el tráfico proveniente de Estados Unidos, 
-            proporcionando una vista específica del rendimiento editorial en el mercado estadounidense.
-            """)
-            
-            # Configuración del KPI
-            monthly_goal_us = 1500000  # 1.5 millones de Page Views desde USA
-            current_progress_us = total_monthly_pageviews_us
-            progress_percentage_us = (current_progress_us / monthly_goal_us) * 100 if monthly_goal_us > 0 else 0
-            
-            # Métricas principales del KPI
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric(
-                    "🎯 Objetivo Mensual (USA)", 
-                    f"{monthly_goal_us:,}",
-                    help="Meta de Page Views desde Estados Unidos para este mes"
-                )
-            
-            with col2:
-                st.metric(
-                    "🇺🇸 Progreso Actual", 
-                    f"{current_progress_us:,}",
-                    delta=f"{current_progress_us - monthly_goal_us:,}" if current_progress_us >= monthly_goal_us else None,
-                    help="Page Views acumulados desde Estados Unidos en lo que va del mes (solo artículos del Sheet)"
-                )
-            
-            with col3:
-                st.metric(
-                    "📊 % Completado", 
-                    f"{progress_percentage_us:.1f}%",
-                    help="Porcentaje del objetivo estadounidense alcanzado"
-                )
-            
-            # Gráfico de progreso
-            st.markdown("---")
-            
-            # Crear gráfico de gauge/progreso
-            import plotly.graph_objects as go
-            
-            fig = go.Figure(go.Indicator(
-                mode = "gauge+number+delta",
-                value = current_progress_us,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Progreso hacia Objetivo Mensual USA (Artículos del Sheet)"},
-                delta = {'reference': monthly_goal_us, 'valueformat': ',.0f'},
-                gauge = {
-                    'axis': {'range': [None, monthly_goal_us * 1.2]},
-                    'bar': {'color': media_config['color']},
-                    'steps': [
-                        {'range': [0, monthly_goal_us * 0.5], 'color': "lightgray"},
-                        {'range': [monthly_goal_us * 0.5, monthly_goal_us * 0.8], 'color': "yellow"},
-                        {'range': [monthly_goal_us * 0.8, monthly_goal_us], 'color': "lightgreen"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': monthly_goal_us
-                    }
-                }
-            ))
-            
-            fig.update_layout(
-                height=400,
-                font={'color': "darkblue", 'family': "Arial"}
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Información adicional
-            current_date = datetime.now()
-            days_in_month = current_date.day
-            
-            # Calcular días totales del mes actual
-            if current_date.month == 12:
-                next_month = current_date.replace(year=current_date.year + 1, month=1, day=1)
-            else:
-                next_month = current_date.replace(month=current_date.month + 1, day=1)
-            
-            days_total_month = (next_month - timedelta(days=1)).day
-            daily_average_us = current_progress_us / days_in_month if days_in_month > 0 else 0
-            projected_monthly_us = daily_average_us * days_total_month
-            
-            st.markdown("### 📈 Análisis de Tendencia USA")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric(
-                    "📅 Días Transcurridos", 
-                    f"{days_in_month}/{days_total_month}",
-                    help="Días transcurridos del mes actual"
-                )
-            
-            with col2:
-                st.metric(
-                    "📊 Promedio Diario USA", 
-                    f"{daily_average_us:,.0f}",
-                    help="Page Views promedio por día desde Estados Unidos en lo que va del mes"
-                )
-            
-            with col3:
-                projection_delta_us = projected_monthly_us - monthly_goal_us
-                st.metric(
-                    "🔮 Proyección Mensual USA", 
-                    f"{projected_monthly_us:,.0f}",
-                    delta=f"{projection_delta_us:,.0f}",
-                    delta_color="normal" if projection_delta_us >= 0 else "inverse",
-                    help="Estimación de Page Views desde Estados Unidos al final del mes según tendencia actual"
-                )
-            
-            # Disclaimer sobre el cálculo de proyección
-            st.markdown("---")
-            st.info(f"""
-            **📋 Metodología de Proyección USA:**
-            
-            • **Promedio Diario**: {daily_average_us:,.0f} Page Views desde Estados Unidos (total acumulado ÷ {days_in_month} días transcurridos)
-            
-            • **Fórmula**: Promedio Diario USA × {days_total_month} días del mes = {projected_monthly_us:,.0f} Page Views proyectados
-            
-            • **Filtro Geográfico**: Solo se consideran Page Views provenientes de Estados Unidos según Google Analytics 4
-            
-            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement desde Estados Unidos se mantiene constante. 
-            Los fines de semana, feriados, eventos deportivos especiales o cambios en la estrategia editorial pueden afectar el resultado final.
-            
-            • **Solo URLs del Sheet**: Se consideran únicamente los artículos registrados en el Google Sheet, no todo el tráfico del sitio.
-            """)
-        
-        with tab2:
             st.subheader("📋 Datos Combinados (Sheet + GA4)")
             
             # Búsqueda
@@ -418,7 +261,7 @@ else:
                 mime="text/csv"
             )
         
-        with tab3:
+        with tab2:
             st.subheader("📊 Análisis de Tráfico")
             
             # Top 10 páginas por sesiones
@@ -541,6 +384,17 @@ else:
                         ga4_for_trends['date_parsed'] >= start_date
                     ].copy()
                     
+                    # Calcular period_name antes de usarlo
+                    if date_option == "Preestablecido":
+                        period_name = {
+                            "7daysAgo": "7 días",
+                            "14daysAgo": "14 días", 
+                            "30daysAgo": "30 días",
+                            "90daysAgo": "90 días"
+                        }.get(date_range, "período seleccionado")
+                    else:
+                        period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
+                    
                     if not ga4_trends_filtered.empty:
                         # Tendencia diaria (solo URLs del Sheet en el rango seleccionado)
                         daily_metrics = ga4_trends_filtered.groupby('date').agg({
@@ -571,16 +425,6 @@ else:
                             name='Usuarios',
                             line=dict(color='orange')
                         ))
-                        
-                        if date_option == "Preestablecido":
-                            period_name = {
-                                "7daysAgo": "7 días",
-                                "14daysAgo": "14 días", 
-                                "30daysAgo": "30 días",
-                                "90daysAgo": "90 días"
-                            }.get(date_range, "período seleccionado")
-                        else:
-                            period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
                         
                         fig_trend.update_layout(
                             title=f'Tendencia de Tráfico Diario - Últimos {period_name}',
