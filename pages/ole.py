@@ -13,7 +13,8 @@ from utils import (
     get_ga4_data_with_country,
     filter_media_urls,
     merge_sheets_with_ga4,
-    create_media_config
+    create_media_config,
+    normalize_url
 )
 
 # Configuración de la página
@@ -172,6 +173,11 @@ else:
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
         # Aplicar filtros de fuente y medio a GA4 antes del merge
         ga4_filtered = ga4_df.copy()
+        
+        # Agregar columna url_normalized a ga4_filtered para uso posterior
+        ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
+            lambda x: normalize_url(f"{media_config['domain']}{x}")
+        )
         
         if source_filter:
             ga4_filtered = ga4_filtered[ga4_filtered['sessionSource'].isin(source_filter)]
