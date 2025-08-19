@@ -18,7 +18,7 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard Olé",
+    page_title="Dashboard Oleeé",
     page_icon="⚽",
     layout="wide"
 )
