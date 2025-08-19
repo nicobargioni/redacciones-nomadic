@@ -12,7 +12,8 @@ from utils import (
     get_ga4_data, 
     filter_media_urls,
     merge_sheets_with_ga4,
-    create_media_config
+    create_media_config,
+    normalize_url
 )
 
 # Configuración de la página
@@ -179,6 +180,10 @@ else:
             ga4_filtered = ga4_filtered[ga4_filtered['sessionMedium'].isin(medium_filter)]
         
         if not ga4_filtered.empty:
+            # Agregar columna url_normalized a ga4_filtered para uso posterior
+            ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
+                lambda x: normalize_url(f"{media_config['domain']}{x}")
+            )
             merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_filtered, media_config['domain'])
             
             # Mostrar información de filtros aplicados
@@ -467,7 +472,7 @@ else:
                 else:
                     st.info("No hay datos suficientes para mostrar la correlación")
         
-        with tab3:
+        with tab4:
             st.subheader("🔝 Top Páginas")
             
             # Selector de métrica
@@ -502,7 +507,7 @@ else:
                 # Tabla de datos
                 st.dataframe(top_df, use_container_width=True)
         
-        with tab4:
+        with tab5:
             st.subheader("📈 Tendencias")
             
             # Usar ga4_filtered (ya filtrado por fuente/medio) para mostrar solo URLs que están en el Sheet
@@ -608,7 +613,7 @@ else:
             else:
                 st.info("No hay datos de tendencias disponibles")
         
-        with tab5:
+        with tab6:
             st.subheader("👤 Performance por Autor")
             
             if 'autor' in merged_df.columns and not merged_df.empty:
