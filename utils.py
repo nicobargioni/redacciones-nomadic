@@ -514,15 +514,24 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
         return pd.DataFrame()
     
     # Agrupar GA4 por URL normalizada para obtener métricas agregadas
-    ga4_grouped = ga4_df.groupby('url_normalized').agg({
-        'sessions': 'sum',
-        'totalUsers': 'sum',
-        'screenPageViews': 'sum',
-        'averageSessionDuration': 'mean',
-        'bounceRate': 'mean',
-        'newUsers': 'sum',
-        'engagementRate': 'mean'
-    }).reset_index()
+    # Verificar qué columnas están disponibles y son numéricas
+    agg_dict = {}
+    
+    # Columnas para suma
+    sum_columns = ['sessions', 'totalUsers', 'screenPageViews', 'newUsers']
+    for col in sum_columns:
+        if col in ga4_df.columns:
+            agg_dict[col] = 'sum'
+    
+    # Columnas para promedio (necesitan ser numéricas)
+    mean_columns = ['averageSessionDuration', 'bounceRate', 'engagementRate']
+    for col in mean_columns:
+        if col in ga4_df.columns:
+            # Convertir a numérico, reemplazando errores con NaN
+            ga4_df[col] = pd.to_numeric(ga4_df[col], errors='coerce')
+            agg_dict[col] = 'mean'
+    
+    ga4_grouped = ga4_df.groupby('url_normalized').agg(agg_dict).reset_index()
     
     # Hacer el merge
     merged_df = sheets_df.merge(
