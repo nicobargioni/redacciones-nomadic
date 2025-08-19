@@ -19,7 +19,7 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard Oleeé",
+    page_title="Dashboard Olé",
     page_icon="⚽",
     layout="wide"
 )
@@ -79,6 +79,16 @@ else:
         start_date_param = "7daysAgo"
         end_date_param = "today"
 
+# Filtro por país
+st.sidebar.markdown("---")
+st.sidebar.subheader("🌍 Filtro Geográfico")
+country_filter = st.sidebar.selectbox(
+    "Filtrar por país:",
+    ["Todos los países", "United States", "Spain", "Argentina", "Mexico", "Colombia", "Chile", "Peru"],
+    key="country_filter_ole",
+    help="Filtra los datos de GA4 por país específico"
+)
+
 # Botón de actualización
 if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
@@ -98,13 +108,22 @@ with st.spinner('Cargando datos...'):
     else:
         sheets_filtered = pd.DataFrame()
     
-    # Cargar datos de GA4
-    ga4_df = get_ga4_data(
-        media_config['property_id'],
-        credentials_file,
-        start_date=start_date_param,
-        end_date=end_date_param
-    )
+    # Cargar datos de GA4 con o sin filtro de país
+    if country_filter != "Todos los países":
+        ga4_df = get_ga4_data_with_country(
+            media_config['property_id'],
+            credentials_file,
+            start_date=start_date_param,
+            end_date=end_date_param,
+            country_filter=country_filter
+        )
+    else:
+        ga4_df = get_ga4_data(
+            media_config['property_id'],
+            credentials_file,
+            start_date=start_date_param,
+            end_date=end_date_param
+        )
 
 # Verificar si hay datos
 if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
@@ -114,6 +133,7 @@ if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
     - No hay URLs de {media_config['domain']} en el Google Sheet
     - Error al conectar con Google Analytics 4
     - Credenciales incorrectas o sin permisos para la propiedad {media_config['property_id']}
+    - No hay datos para el país seleccionado: {country_filter}
     """)
 else:
     # Agregar filtro por autor si hay datos
@@ -160,14 +180,16 @@ else:
                     help="Medio del tráfico (organic, cpc, referral, etc.)"
                 )
     
-
-    
     # Métricas de datos cargados
+    st.sidebar.markdown("---")
     st.sidebar.metric("URLs en Sheet", len(sheets_filtered) if not sheets_filtered.empty else 0)
     if ga4_df is not None:
         st.sidebar.metric("Páginas en GA4", ga4_df['pagePath'].nunique())
     else:
         st.sidebar.metric("Páginas en GA4", 0)
+    
+    if country_filter != "Todos los países":
+        st.sidebar.success(f"🌍 Filtrado por: {country_filter}")
     
     # Mergear datos si ambos están disponibles
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
@@ -221,71 +243,82 @@ else:
         
         st.markdown("---")
         
-        # Obtener datos de GA4 para KPI de Estados Unidos (solo URLs del Sheet del mes actual)
+        # Obtener datos de GA4 para KPI (solo URLs del Sheet del mes actual)
         from datetime import datetime
         current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
         current_month_today = datetime.now().strftime('%Y-%m-%d')
         
-        ga4_monthly_us_df = get_ga4_data_with_country(
-            media_config['property_id'],
-            credentials_file,
-            start_date=current_month_start,
-            end_date=current_month_today,
-            country_filter="United States"
-        )
+        # Si hay filtro de país, aplicarlo también al KPI mensual
+        if country_filter != "Todos los países":
+            ga4_monthly_df = get_ga4_data_with_country(
+                media_config['property_id'],
+                credentials_file,
+                start_date=current_month_start,
+                end_date=current_month_today,
+                country_filter=country_filter
+            )
+        else:
+            ga4_monthly_df = get_ga4_data(
+                media_config['property_id'],
+                credentials_file,
+                start_date=current_month_start,
+                end_date=current_month_today
+            )
         
-        # Calcular Page Views desde Estados Unidos solo de URLs que están en el Sheet
-        total_monthly_pageviews_us = 0
-        if ga4_monthly_us_df is not None and not ga4_monthly_us_df.empty and not sheets_filtered.empty:
-            # Mergear GA4 mensual de Estados Unidos con URLs del Sheet
-            merged_monthly_us = merge_sheets_with_ga4(sheets_filtered, ga4_monthly_us_df, media_config['domain'])
-            if not merged_monthly_us.empty and 'screenPageViews' in merged_monthly_us.columns:
-                total_monthly_pageviews_us = merged_monthly_us['screenPageViews'].sum()
+        # Calcular Page Views solo de URLs que están en el Sheet
+        total_monthly_pageviews = 0
+        if ga4_monthly_df is not None and not ga4_monthly_df.empty and not sheets_filtered.empty:
+            # Mergear GA4 mensual con URLs del Sheet para obtener solo artículos registrados
+            merged_monthly = merge_sheets_with_ga4(sheets_filtered, ga4_monthly_df, media_config['domain'])
+            if not merged_monthly.empty and 'screenPageViews' in merged_monthly.columns:
+                total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI USA", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
         
         with tab1:
-            st.subheader("🇺🇸 KPI Mensual Estados Unidos - Olé")
+            if country_filter != "Todos los países":
+                st.subheader(f"📊 KPI Mensual - Olé ({country_filter})")
+            else:
+                st.subheader("📊 KPI Mensual - Olé")
             
             # Descripción del KPI
-            st.markdown("""
+            st.markdown(f"""
             ### 🎯 Objetivo del Mes
-            **Meta:** 1,500,000 de Page Views desde Estados Unidos
+            **Meta:** 1,500,000 de Page Views{' desde ' + country_filter if country_filter != "Todos los países" else ''}
             
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico desde Estados Unidos en artículos de Olé. 
-            Se consideran únicamente las URLs registradas en el Google Sheet y el tráfico proveniente de Estados Unidos, 
-            proporcionando una vista específica del rendimiento editorial en el mercado estadounidense.
+            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de Olé. 
+            Se consideran únicamente las URLs registradas en el Google Sheet{', filtrando por ' + country_filter if country_filter != "Todos los países" else ''}.
             """)
             
             # Configuración del KPI
-            monthly_goal_us = 1500000  # 1.5 millones de Page Views desde USA
-            current_progress_us = total_monthly_pageviews_us
-            progress_percentage_us = (current_progress_us / monthly_goal_us) * 100 if monthly_goal_us > 0 else 0
+            monthly_goal = 1500000  # 1.5 millones de Page Views
+            current_progress = total_monthly_pageviews
+            progress_percentage = (current_progress / monthly_goal) * 100 if monthly_goal > 0 else 0
             
             # Métricas principales del KPI
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.metric(
-                    "🎯 Objetivo Mensual (USA)", 
-                    f"{monthly_goal_us:,}",
-                    help="Meta de Page Views desde Estados Unidos para este mes"
+                    "🎯 Objetivo Mensual", 
+                    f"{monthly_goal:,}",
+                    help="Meta de Page Views para este mes"
                 )
             
             with col2:
                 st.metric(
-                    "🇺🇸 Progreso Actual", 
-                    f"{current_progress_us:,}",
-                    delta=f"{current_progress_us - monthly_goal_us:,}" if current_progress_us >= monthly_goal_us else None,
-                    help="Page Views acumulados desde Estados Unidos en lo que va del mes (solo artículos del Sheet)"
+                    "📈 Progreso Actual", 
+                    f"{current_progress:,}",
+                    delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
+                    help=f"Page Views acumulados en lo que va del mes{' desde ' + country_filter if country_filter != 'Todos los países' else ''}"
                 )
             
             with col3:
                 st.metric(
                     "📊 % Completado", 
-                    f"{progress_percentage_us:.1f}%",
-                    help="Porcentaje del objetivo estadounidense alcanzado"
+                    f"{progress_percentage:.1f}%",
+                    help="Porcentaje del objetivo alcanzado"
                 )
             
             # Gráfico de progreso
@@ -296,22 +329,22 @@ else:
             
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number+delta",
-                value = current_progress_us,
+                value = current_progress,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Progreso hacia Objetivo Mensual USA (Artículos del Sheet)"},
-                delta = {'reference': monthly_goal_us, 'valueformat': ',.0f'},
+                title = {'text': f"Progreso hacia Objetivo Mensual{' - ' + country_filter if country_filter != 'Todos los países' else ''}"},
+                delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
                 gauge = {
-                    'axis': {'range': [None, monthly_goal_us * 1.2]},
+                    'axis': {'range': [None, monthly_goal * 1.2]},
                     'bar': {'color': media_config['color']},
                     'steps': [
-                        {'range': [0, monthly_goal_us * 0.5], 'color': "lightgray"},
-                        {'range': [monthly_goal_us * 0.5, monthly_goal_us * 0.8], 'color': "yellow"},
-                        {'range': [monthly_goal_us * 0.8, monthly_goal_us], 'color': "lightgreen"}
+                        {'range': [0, monthly_goal * 0.5], 'color': "lightgray"},
+                        {'range': [monthly_goal * 0.5, monthly_goal * 0.8], 'color': "yellow"},
+                        {'range': [monthly_goal * 0.8, monthly_goal], 'color': "lightgreen"}
                     ],
                     'threshold': {
                         'line': {'color': "red", 'width': 4},
                         'thickness': 0.75,
-                        'value': monthly_goal_us
+                        'value': monthly_goal
                     }
                 }
             ))
@@ -334,10 +367,10 @@ else:
                 next_month = current_date.replace(month=current_date.month + 1, day=1)
             
             days_total_month = (next_month - timedelta(days=1)).day
-            daily_average_us = current_progress_us / days_in_month if days_in_month > 0 else 0
-            projected_monthly_us = daily_average_us * days_total_month
+            daily_average = current_progress / days_in_month if days_in_month > 0 else 0
+            projected_monthly = daily_average * days_total_month
             
-            st.markdown("### 📈 Análisis de Tendencia USA")
+            st.markdown("### 📈 Análisis de Tendencia")
             
             col1, col2, col3 = st.columns(3)
             
@@ -350,33 +383,33 @@ else:
             
             with col2:
                 st.metric(
-                    "📊 Promedio Diario USA", 
-                    f"{daily_average_us:,.0f}",
-                    help="Page Views promedio por día desde Estados Unidos en lo que va del mes"
+                    "📊 Promedio Diario", 
+                    f"{daily_average:,.0f}",
+                    help="Page Views promedio por día en lo que va del mes"
                 )
             
             with col3:
-                projection_delta_us = projected_monthly_us - monthly_goal_us
+                projection_delta = projected_monthly - monthly_goal
                 st.metric(
-                    "🔮 Proyección Mensual USA", 
-                    f"{projected_monthly_us:,.0f}",
-                    delta=f"{projection_delta_us:,.0f}",
-                    delta_color="normal" if projection_delta_us >= 0 else "inverse",
-                    help="Estimación de Page Views desde Estados Unidos al final del mes según tendencia actual"
+                    "🔮 Proyección Mensual", 
+                    f"{projected_monthly:,.0f}",
+                    delta=f"{projection_delta:,.0f}",
+                    delta_color="normal" if projection_delta >= 0 else "inverse",
+                    help="Estimación de Page Views al final del mes según tendencia actual"
                 )
             
             # Disclaimer sobre el cálculo de proyección
             st.markdown("---")
             st.info(f"""
-            **📋 Metodología de Proyección USA:**
+            **📋 Metodología de Proyección:**
             
-            • **Promedio Diario**: {daily_average_us:,.0f} Page Views desde Estados Unidos (total acumulado ÷ {days_in_month} días transcurridos)
+            • **Promedio Diario**: {daily_average:,.0f} Page Views (total acumulado ÷ {days_in_month} días transcurridos)
             
-            • **Fórmula**: Promedio Diario USA × {days_total_month} días del mes = {projected_monthly_us:,.0f} Page Views proyectados
+            • **Fórmula**: Promedio Diario × {days_total_month} días del mes = {projected_monthly:,.0f} Page Views proyectados
             
-            • **Filtro Geográfico**: Solo se consideran Page Views provenientes de Estados Unidos según Google Analytics 4
+            {f'• **Filtro Geográfico**: Solo se consideran Page Views desde {country_filter}' if country_filter != "Todos los países" else '• **Sin filtro geográfico**: Se consideran Page Views de todos los países'}
             
-            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement desde Estados Unidos se mantiene constante. 
+            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement se mantiene constante. 
             Los fines de semana, feriados, eventos deportivos especiales o cambios en la estrategia editorial pueden afectar el resultado final.
             
             • **Solo URLs del Sheet**: Se consideran únicamente los artículos registrados en el Google Sheet, no todo el tráfico del sitio.
@@ -478,7 +511,7 @@ else:
                 else:
                     st.info("No hay datos suficientes para mostrar la correlación")
         
-        with tab3:
+        with tab4:
             st.subheader("🔝 Top Páginas")
             
             # Selector de métrica
@@ -513,7 +546,7 @@ else:
                 # Tabla de datos
                 st.dataframe(top_df, use_container_width=True)
         
-        with tab4:
+        with tab5:
             st.subheader("📈 Tendencias")
             
             # Usar ga4_filtered (ya filtrado por fuente/medio) para mostrar solo URLs que están en el Sheet
@@ -547,7 +580,7 @@ else:
                         ga4_for_trends['date_parsed'] >= start_date
                     ].copy()
                     
-                    # Calcular period_name antes de usarlo
+                    # Calcular period_name
                     if date_option == "Preestablecido":
                         period_name = {
                             "7daysAgo": "7 días",
@@ -619,7 +652,7 @@ else:
             else:
                 st.info("No hay datos de tendencias disponibles")
         
-        with tab5:
+        with tab6:
             st.subheader("👤 Performance por Autor")
             
             if 'autor' in merged_df.columns and not merged_df.empty:
