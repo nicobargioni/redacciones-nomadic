@@ -79,17 +79,8 @@ else:
         start_date_param = "7daysAgo"
         end_date_param = "today"
 
-# Filtro por país
-st.sidebar.markdown("---")
-st.sidebar.subheader("🌍 Filtro Geográfico")
-country_filter = st.sidebar.selectbox(
-    "Filtrar por país:",
-    ["Todos los países", "United States", "Spain", "Argentina", "Mexico", "Colombia", "Chile", "Peru"],
-    key="country_filter_ole",
-    help="Filtra los datos de GA4 por país específico"
-)
-
 # Botón de actualización
+st.sidebar.markdown("---")
 if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
@@ -108,22 +99,14 @@ with st.spinner('Cargando datos...'):
     else:
         sheets_filtered = pd.DataFrame()
     
-    # Cargar datos de GA4 con o sin filtro de país
-    if country_filter != "Todos los países":
-        ga4_df = get_ga4_data_with_country(
-            media_config['property_id'],
-            credentials_file,
-            start_date=start_date_param,
-            end_date=end_date_param,
-            country_filter=country_filter
-        )
-    else:
-        ga4_df = get_ga4_data(
-            media_config['property_id'],
-            credentials_file,
-            start_date=start_date_param,
-            end_date=end_date_param
-        )
+    # Cargar datos de GA4 siempre filtrado por Estados Unidos
+    ga4_df = get_ga4_data_with_country(
+        media_config['property_id'],
+        credentials_file,
+        start_date=start_date_param,
+        end_date=end_date_param,
+        country_filter="United States"
+    )
 
 # Verificar si hay datos
 if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
@@ -133,7 +116,7 @@ if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
     - No hay URLs de {media_config['domain']} en el Google Sheet
     - Error al conectar con Google Analytics 4
     - Credenciales incorrectas o sin permisos para la propiedad {media_config['property_id']}
-    - No hay datos para el país seleccionado: {country_filter}
+    - No hay datos desde Estados Unidos para el período seleccionado
     """)
 else:
     # Agregar filtro por autor si hay datos
@@ -188,8 +171,7 @@ else:
     else:
         st.sidebar.metric("Páginas en GA4", 0)
     
-    if country_filter != "Todos los países":
-        st.sidebar.success(f"🌍 Filtrado por: {country_filter}")
+    st.sidebar.success("🇺🇸 Datos filtrados por: Estados Unidos")
     
     # Mergear datos si ambos están disponibles
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
@@ -248,22 +230,14 @@ else:
         current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
         current_month_today = datetime.now().strftime('%Y-%m-%d')
         
-        # Si hay filtro de país, aplicarlo también al KPI mensual
-        if country_filter != "Todos los países":
-            ga4_monthly_df = get_ga4_data_with_country(
-                media_config['property_id'],
-                credentials_file,
-                start_date=current_month_start,
-                end_date=current_month_today,
-                country_filter=country_filter
-            )
-        else:
-            ga4_monthly_df = get_ga4_data(
-                media_config['property_id'],
-                credentials_file,
-                start_date=current_month_start,
-                end_date=current_month_today
-            )
+        # Cargar datos mensuales de GA4 siempre filtrado por Estados Unidos
+        ga4_monthly_df = get_ga4_data_with_country(
+            media_config['property_id'],
+            credentials_file,
+            start_date=current_month_start,
+            end_date=current_month_today,
+            country_filter="United States"
+        )
         
         # Calcular Page Views solo de URLs que están en el Sheet
         total_monthly_pageviews = 0
@@ -277,22 +251,19 @@ else:
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
         
         with tab1:
-            if country_filter != "Todos los países":
-                st.subheader(f"📊 KPI Mensual - Olé ({country_filter})")
-            else:
-                st.subheader("📊 KPI Mensual - Olé")
+            st.subheader("📊 KPI Mensual - Olé (Estados Unidos)")
             
             # Descripción del KPI
-            st.markdown(f"""
+            st.markdown("""
             ### 🎯 Objetivo del Mes
-            **Meta:** 1,500,000 de Page Views{' desde ' + country_filter if country_filter != "Todos los países" else ''}
+            **Meta:** 750,000 de Page Views desde Estados Unidos
             
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de Olé. 
-            Se consideran únicamente las URLs registradas en el Google Sheet{', filtrando por ' + country_filter if country_filter != "Todos los países" else ''}.
+            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico desde Estados Unidos en artículos de Olé. 
+            Se consideran únicamente las URLs registradas en el Google Sheet y el tráfico proveniente de Estados Unidos.
             """)
             
             # Configuración del KPI
-            monthly_goal = 1500000  # 1.5 millones de Page Views
+            monthly_goal = 750000  # 750,000 Page Views desde USA
             current_progress = total_monthly_pageviews
             progress_percentage = (current_progress / monthly_goal) * 100 if monthly_goal > 0 else 0
             
@@ -303,7 +274,7 @@ else:
                 st.metric(
                     "🎯 Objetivo Mensual", 
                     f"{monthly_goal:,}",
-                    help="Meta de Page Views para este mes"
+                    help="Meta de Page Views desde Estados Unidos para este mes"
                 )
             
             with col2:
@@ -311,7 +282,7 @@ else:
                     "📈 Progreso Actual", 
                     f"{current_progress:,}",
                     delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
-                    help=f"Page Views acumulados en lo que va del mes{' desde ' + country_filter if country_filter != 'Todos los países' else ''}"
+                    help="Page Views acumulados desde Estados Unidos en lo que va del mes (solo artículos del Sheet)"
                 )
             
             with col3:
@@ -331,7 +302,7 @@ else:
                 mode = "gauge+number+delta",
                 value = current_progress,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': f"Progreso hacia Objetivo Mensual{' - ' + country_filter if country_filter != 'Todos los países' else ''}"},
+                title = {'text': "Progreso hacia Objetivo Mensual - Estados Unidos"},
                 delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
                 gauge = {
                     'axis': {'range': [None, monthly_goal * 1.2]},
@@ -403,13 +374,13 @@ else:
             st.info(f"""
             **📋 Metodología de Proyección:**
             
-            • **Promedio Diario**: {daily_average:,.0f} Page Views (total acumulado ÷ {days_in_month} días transcurridos)
+            • **Promedio Diario**: {daily_average:,.0f} Page Views desde Estados Unidos (total acumulado ÷ {days_in_month} días transcurridos)
             
             • **Fórmula**: Promedio Diario × {days_total_month} días del mes = {projected_monthly:,.0f} Page Views proyectados
             
-            {f'• **Filtro Geográfico**: Solo se consideran Page Views desde {country_filter}' if country_filter != "Todos los países" else '• **Sin filtro geográfico**: Se consideran Page Views de todos los países'}
+            • **Filtro Geográfico**: Solo se consideran Page Views provenientes de Estados Unidos según Google Analytics 4
             
-            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement se mantiene constante. 
+            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement desde Estados Unidos se mantiene constante. 
             Los fines de semana, feriados, eventos deportivos especiales o cambios en la estrategia editorial pueden afectar el resultado final.
             
             • **Solo URLs del Sheet**: Se consideran únicamente los artículos registrados en el Google Sheet, no todo el tráfico del sitio.
@@ -453,7 +424,7 @@ else:
             st.download_button(
                 label="📥 Descargar datos",
                 data=csv,
-                file_name=f"ole_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                file_name=f"ole_usa_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
         
@@ -758,7 +729,7 @@ else:
                 st.download_button(
                     label="📥 Descargar Performance por Autor",
                     data=csv_performance,
-                    file_name=f"ole_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=f"ole_usa_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
             else:
