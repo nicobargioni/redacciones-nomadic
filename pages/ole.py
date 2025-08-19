@@ -85,8 +85,8 @@ if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Usar archivo de credenciales correcto para Olé
-credentials_file = "credentials_analytics_acceso.json"
+# Usar archivo de credenciales (por defecto usa medios, cambiar si es necesario)
+credentials_file = "credentials_analytics_acceso_medios.json"
 
 # Cargar datos
 with st.spinner('Cargando datos...'):
