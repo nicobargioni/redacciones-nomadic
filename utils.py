@@ -571,6 +571,48 @@ def create_media_config():
                     'property_id': ga_config.get('okdiario_property_id', '255037852'),
                     'icon': '🗞️',
                     'color': '#e53935'
+                },
+                'elespanol': {
+                    'name': 'El Español',
+                    'domain': 'elespanol.com',
+                    'property_id': ga_config.get('elespanol_property_id', '000000000'),
+                    'icon': '🇪🇸',
+                    'color': '#ff6b00'
+                },
+                'natgeo': {
+                    'name': 'National Geographic',
+                    'domain': 'nationalgeographic.com.es',
+                    'property_id': ga_config.get('natgeo_property_id', '000000000'),
+                    'icon': '🌍',
+                    'color': '#ffcc02'
+                },
+                'mundodeportivo': {
+                    'name': 'Mundo Deportivo',
+                    'domain': 'mundodeportivo.com',
+                    'property_id': ga_config.get('mundodeportivo_property_id', '000000000'),
+                    'icon': '🏆',
+                    'color': '#0066cc'
+                },
+                'vidae': {
+                    'name': 'Vidae',
+                    'domain': 'vidae.com.ar',
+                    'property_id': ga_config.get('vidae_property_id', '000000000'),
+                    'icon': '💫',
+                    'color': '#9c27b0'
+                },
+                'bumeran': {
+                    'name': 'Bumeran',
+                    'domain': 'bumeran.com.ar',
+                    'property_id': ga_config.get('bumeran_property_id', '000000000'),
+                    'icon': '💼',
+                    'color': '#00a651'
+                },
+                'sancor': {
+                    'name': 'Sancor',
+                    'domain': 'sancorsalud.com.ar',
+                    'property_id': ga_config.get('sancor_property_id', '000000000'),
+                    'icon': '🏥',
+                    'color': '#0d47a1'
                 }
             }
     except:
@@ -598,5 +640,47 @@ def create_media_config():
             'property_id': '255037852',
             'icon': '🗞️',
             'color': '#e53935'
+        },
+        'elespanol': {
+            'name': 'El Español',
+            'domain': 'elespanol.com',
+            'property_id': '000000000',
+            'icon': '🇪🇸',
+            'color': '#ff6b00'
+        },
+        'natgeo': {
+            'name': 'National Geographic',
+            'domain': 'nationalgeographic.com.es',
+            'property_id': '000000000',
+            'icon': '🌍',
+            'color': '#ffcc02'
+        },
+        'mundodeportivo': {
+            'name': 'Mundo Deportivo',
+            'domain': 'mundodeportivo.com',
+            'property_id': '000000000',
+            'icon': '🏆',
+            'color': '#0066cc'
+        },
+        'vidae': {
+            'name': 'Vidae',
+            'domain': 'vidae.com.ar',
+            'property_id': '000000000',
+            'icon': '💫',
+            'color': '#9c27b0'
+        },
+        'bumeran': {
+            'name': 'Bumeran',
+            'domain': 'bumeran.com.ar',
+            'property_id': '000000000',
+            'icon': '💼',
+            'color': '#00a651'
+        },
+        'sancor': {
+            'name': 'Sancor',
+            'domain': 'sancorsalud.com.ar',
+            'property_id': '000000000',
+            'icon': '🏥',
+            'color': '#0d47a1'
         }
     }
