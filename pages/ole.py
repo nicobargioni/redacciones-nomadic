@@ -541,6 +541,17 @@ else:
                         ga4_for_trends['date_parsed'] >= start_date
                     ].copy()
                     
+                    # Calcular period_name antes de usarlo
+                    if date_option == "Preestablecido":
+                        period_name = {
+                            "7daysAgo": "7 días",
+                            "14daysAgo": "14 días", 
+                            "30daysAgo": "30 días",
+                            "90daysAgo": "90 días"
+                        }.get(date_range, "período seleccionado")
+                    else:
+                        period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
+                    
                     if not ga4_trends_filtered.empty:
                         # Tendencia diaria (solo URLs del Sheet en el rango seleccionado)
                         daily_metrics = ga4_trends_filtered.groupby('date').agg({
@@ -572,16 +583,6 @@ else:
                             line=dict(color='orange')
                         ))
                         
-                        if date_option == "Preestablecido":
-                            period_name = {
-                                "7daysAgo": "7 días",
-                                "14daysAgo": "14 días", 
-                                "30daysAgo": "30 días",
-                                "90daysAgo": "90 días"
-                            }.get(date_range, "período seleccionado")
-                        else:
-                            period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
-                        
                         fig_trend.update_layout(
                             title=f'Tendencia de Tráfico Diario - Últimos {period_name}',
                             xaxis_title='Fecha',
@@ -606,8 +607,7 @@ else:
                         )
                         st.plotly_chart(fig_weekly, use_container_width=True)
                     else:
-                        period_display = period_name if date_option == "Preestablecido" else f"período {period_name}"
-                        st.info(f"No hay datos de tendencias para el {period_display}")
+                        st.info(f"No hay datos de tendencias para los últimos {period_name}")
                 else:
                     st.info("No hay datos de tendencias para las URLs del Sheet")
             else:
