@@ -286,7 +286,23 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         
     except Exception as e:
         logger.error(f"Error obteniendo datos de GA4: {e}")
-        st.error(f"Error al obtener datos de GA4: {str(e)}")
+        
+        # Mensajes de error más específicos
+        error_msg = str(e).lower()
+        if 'invalid_grant' in error_msg:
+            st.error("🔐 Error de autenticación: El token de acceso ha expirado o es inválido.")
+            st.warning("""
+            **Solución requerida:**
+            1. Regenerar los tokens OAuth2 para Google Analytics
+            2. Actualizar `google_oauth_medios` en Streamlit secrets
+            3. Verificar que la cuenta tiene acceso a la property ID
+            """)
+        elif '403' in str(e) or 'forbidden' in error_msg:
+            st.error("🚫 Error de permisos: No tienes acceso a esta propiedad de GA4.")
+        elif '404' in str(e) or 'not found' in error_msg:
+            st.error("❌ Error: Property ID no encontrada en GA4.")
+        else:
+            st.error(f"Error al obtener datos de GA4: {str(e)}")
         
         # Mensajes de ayuda específicos
         if "403" in str(e) or "permission" in str(e).lower():
@@ -418,7 +434,23 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         
     except Exception as e:
         logger.error(f"Error obteniendo datos de GA4: {e}")
-        st.error(f"Error al obtener datos de GA4: {str(e)}")
+        
+        # Mensajes de error más específicos
+        error_msg = str(e).lower()
+        if 'invalid_grant' in error_msg:
+            st.error("🔐 Error de autenticación: El token de acceso ha expirado o es inválido.")
+            st.warning("""
+            **Solución requerida:**
+            1. Regenerar los tokens OAuth2 para Google Analytics
+            2. Actualizar `google_oauth_medios` en Streamlit secrets
+            3. Verificar que la cuenta tiene acceso a la property ID
+            """)
+        elif '403' in str(e) or 'forbidden' in error_msg:
+            st.error("🚫 Error de permisos: No tienes acceso a esta propiedad de GA4.")
+        elif '404' in str(e) or 'not found' in error_msg:
+            st.error("❌ Error: Property ID no encontrada en GA4.")
+        else:
+            st.error(f"Error al obtener datos de GA4: {str(e)}")
         
         # Mensajes de ayuda específicos
         if "403" in str(e) or "permission" in str(e).lower():
