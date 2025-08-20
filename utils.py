@@ -190,13 +190,33 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
     Obtiene datos de Google Analytics 4 para una propiedad específica con opción de filtrar por país
     """
     try:
-        # Determinar qué tipo de cuenta usar según la propiedad
-        account_type = "acceso"  # Por defecto para Clarín y Olé
-        if property_id == "255037852":  # OK Diario usa cuenta medios
-            account_type = "medios"
+        # Para OK Diario, usar archivo JSON local directamente
+        if property_id == "255037852":  # OK Diario
+            credentials_file_path = "credentials_analytics_acceso_medios.json"
+            if os.path.exists(credentials_file_path):
+                logger.info("Usando credenciales JSON para OK Diario")
+                with open(credentials_file_path, 'r') as f:
+                    cred_data = json.load(f)
+                
+                # Crear credenciales directamente del JSON sin refrescar
+                credentials = Credentials(
+                    token=cred_data.get('token'),
+                    refresh_token=cred_data.get('refresh_token'),
+                    token_uri=cred_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+                    client_id=cred_data.get('client_id'),
+                    client_secret=cred_data.get('client_secret'),
+                    scopes=cred_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
+                )
+                
+                client = BetaAnalyticsDataClient(credentials=credentials)
+            else:
+                logger.error(f"No se encontró el archivo {credentials_file_path}")
+                st.error(f"🔑 No se encontró el archivo {credentials_file_path}")
+                return None
         
-        # Usar SOLO Streamlit secrets (no archivos locales)
-        if hasattr(st, 'secrets'):
+        # Para Clarín y Olé, usar Streamlit secrets
+        elif hasattr(st, 'secrets'):
+            account_type = "acceso"  # Clarín y Olé usan acceso
             secret_key = f'google_oauth_{account_type}'
             if secret_key in st.secrets:
                 logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
@@ -207,7 +227,7 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
                 return None
         else:
             logger.error("No se encontraron credenciales válidas")
-            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets o archivos locales.")
+            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets.")
             return None
         
         if not client:
@@ -339,13 +359,33 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
     Determina automáticamente qué cuenta usar según la propiedad
     """
     try:
-        # Determinar qué tipo de cuenta usar según la propiedad
-        account_type = "acceso"  # Por defecto para Clarín y Olé
-        if property_id == "255037852":  # OK Diario usa cuenta medios
-            account_type = "medios"
+        # Para OK Diario, usar archivo JSON local directamente
+        if property_id == "255037852":  # OK Diario
+            credentials_file_path = "credentials_analytics_acceso_medios.json"
+            if os.path.exists(credentials_file_path):
+                logger.info("Usando credenciales JSON para OK Diario")
+                with open(credentials_file_path, 'r') as f:
+                    cred_data = json.load(f)
+                
+                # Crear credenciales directamente del JSON sin refrescar
+                credentials = Credentials(
+                    token=cred_data.get('token'),
+                    refresh_token=cred_data.get('refresh_token'),
+                    token_uri=cred_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+                    client_id=cred_data.get('client_id'),
+                    client_secret=cred_data.get('client_secret'),
+                    scopes=cred_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
+                )
+                
+                client = BetaAnalyticsDataClient(credentials=credentials)
+            else:
+                logger.error(f"No se encontró el archivo {credentials_file_path}")
+                st.error(f"🔑 No se encontró el archivo {credentials_file_path}")
+                return None
         
-        # Usar SOLO Streamlit secrets (no archivos locales)
-        if hasattr(st, 'secrets'):
+        # Para Clarín y Olé, usar Streamlit secrets
+        elif hasattr(st, 'secrets'):
+            account_type = "acceso"  # Clarín y Olé usan acceso
             secret_key = f'google_oauth_{account_type}'
             if secret_key in st.secrets:
                 logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
@@ -356,7 +396,7 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
                 return None
         else:
             logger.error("No se encontraron credenciales válidas")
-            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets o archivos locales.")
+            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets.")
             return None
         
         if not client:
