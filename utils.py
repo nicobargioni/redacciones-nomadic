@@ -195,27 +195,8 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         if property_id == "255037852":  # OK Diario usa cuenta medios
             account_type = "medios"
         
-        # Intentar primero con archivo local (como antes)
-        if credentials_file and os.path.exists(credentials_file):
-            with open(credentials_file, 'r') as f:
-                cred_data = json.load(f)
-            
-            # Si tiene refresh_token, es OAuth2
-            if 'refresh_token' in cred_data:
-                logger.info("Usando credenciales OAuth2 desde archivo")
-                client = get_ga4_client_oauth(credentials_file, account_type)
-            else:
-                # Si no, asumimos que es cuenta de servicio
-                logger.info("Usando credenciales de cuenta de servicio")
-                from google.oauth2 import service_account
-                credentials = service_account.Credentials.from_service_account_file(
-                    credentials_file,
-                    scopes=["https://www.googleapis.com/auth/analytics.readonly"]
-                )
-                client = BetaAnalyticsDataClient(credentials=credentials)
-        
-        # Fallback a Streamlit secrets
-        elif hasattr(st, 'secrets'):
+        # Usar SOLO Streamlit secrets (no archivos locales)
+        if hasattr(st, 'secrets'):
             secret_key = f'google_oauth_{account_type}'
             if secret_key in st.secrets:
                 logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
@@ -363,27 +344,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         if property_id == "255037852":  # OK Diario usa cuenta medios
             account_type = "medios"
         
-        # Intentar primero con archivo local (como antes)
-        if credentials_file and os.path.exists(credentials_file):
-            with open(credentials_file, 'r') as f:
-                cred_data = json.load(f)
-            
-            # Si tiene refresh_token, es OAuth2
-            if 'refresh_token' in cred_data:
-                logger.info("Usando credenciales OAuth2 desde archivo")
-                client = get_ga4_client_oauth(credentials_file, account_type)
-            else:
-                # Si no, asumimos que es cuenta de servicio
-                logger.info("Usando credenciales de cuenta de servicio")
-                from google.oauth2 import service_account
-                credentials = service_account.Credentials.from_service_account_file(
-                    credentials_file,
-                    scopes=["https://www.googleapis.com/auth/analytics.readonly"]
-                )
-                client = BetaAnalyticsDataClient(credentials=credentials)
-        
-        # Fallback a Streamlit secrets
-        elif hasattr(st, 'secrets'):
+        # Usar SOLO Streamlit secrets (no archivos locales)
+        if hasattr(st, 'secrets'):
             secret_key = f'google_oauth_{account_type}'
             if secret_key in st.secrets:
                 logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
