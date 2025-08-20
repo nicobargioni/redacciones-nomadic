@@ -27,7 +27,7 @@ def create_ga4_client(creds_data):
         token=creds_data.get('token'),
         refresh_token=creds_data.get('refresh_token'),
         id_token=creds_data.get('id_token'),
-        token_uri=creds_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+        token_uri=creds_data.get('token_uri'),
         client_id=creds_data.get('client_id'),
         client_secret=creds_data.get('client_secret'),
         scopes=creds_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
