@@ -166,10 +166,8 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
     Obtiene datos de Google Analytics 4 para una propiedad específica con opción de filtrar por país
     """
     try:
-        # Determinar qué tipo de cuenta usar según la propiedad
-        account_type = "acceso"  # Por defecto para Clarín y Olé
-        if property_id == "255037852":  # Solo OK Diario
-            account_type = "medios"
+        # Usar siempre account_type "acceso" para todas las propiedades
+        account_type = "acceso"
         
         # Intentar primero con archivo local (como antes)
         if credentials_file and os.path.exists(credentials_file):
@@ -334,10 +332,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
     Determina automáticamente qué cuenta usar según la propiedad
     """
     try:
-        # Determinar qué tipo de cuenta usar según la propiedad
-        account_type = "acceso"  # Por defecto para Clarín y Olé
-        if property_id == "255037852":  # Solo OK Diario
-            account_type = "medios"
+        # Usar siempre account_type "acceso" para todas las propiedades
+        account_type = "acceso"
         
         # Intentar primero con archivo local (como antes)
         if credentials_file and os.path.exists(credentials_file):
