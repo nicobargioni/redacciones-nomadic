@@ -173,6 +173,11 @@ else:
         # Aplicar filtros de fuente y medio a GA4 antes del merge
         ga4_filtered = ga4_df.copy()
         
+        # Agregar columna url_normalized a ga4_filtered ANTES de aplicar filtros
+        ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
+            lambda x: normalize_url(f"{media_config['domain']}{x}")
+        )
+        
         if source_filter:
             ga4_filtered = ga4_filtered[ga4_filtered['sessionSource'].isin(source_filter)]
         
@@ -180,10 +185,6 @@ else:
             ga4_filtered = ga4_filtered[ga4_filtered['sessionMedium'].isin(medium_filter)]
         
         if not ga4_filtered.empty:
-            # Agregar columna url_normalized a ga4_filtered para uso posterior
-            ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
-                lambda x: normalize_url(f"{media_config['domain']}{x}")
-            )
             merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_filtered, media_config['domain'])
             
             # Mostrar información de filtros aplicados
