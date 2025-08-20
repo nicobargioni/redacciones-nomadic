@@ -100,14 +100,22 @@ def get_oauth2_credentials(credentials_file=None, account_type="acceso"):
                 scopes=['https://www.googleapis.com/auth/analytics.readonly']
             )
             
-            # Refrescar si es necesario
+            # Intentar refrescar el token si es necesario
             try:
-                if credentials.expired and credentials.refresh_token:
-                    logger.info("Refrescando token OAuth2...")
+                # Siempre intentar refrescar para asegurar token válido
+                if credentials.refresh_token:
+                    logger.info(f"Refrescando token OAuth2 para {account_type}...")
                     credentials.refresh(Request())
+                    logger.info("Token refrescado exitosamente")
             except Exception as refresh_error:
-                logger.error(f"Error refrescando token: {refresh_error}")
-                st.error(f"🔑 Error refrescando token: {refresh_error}")
+                error_msg = str(refresh_error).lower()
+                logger.error(f"Error refrescando token para {account_type}: {refresh_error}")
+                
+                if 'invalid_grant' in error_msg:
+                    st.error(f"🔑 Token inválido para cuenta '{account_type}'. El refresh_token puede estar mal configurado en Streamlit secrets.")
+                    st.info(f"Verifica que el secret 'google_oauth_{account_type}' tenga el refresh_token correcto.")
+                else:
+                    st.error(f"🔑 Error refrescando token: {refresh_error}")
                 return None
             
             return credentials
@@ -150,8 +158,10 @@ def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     Crea un cliente de Google Analytics Data API v1beta usando OAuth2
     """
     try:
+        logger.info(f"Creando cliente GA4 OAuth con account_type: {account_type}")
         credentials = get_oauth2_credentials(credentials_file, account_type)
         if not credentials:
+            logger.error(f"No se pudieron obtener credenciales OAuth para {account_type}")
             return None
             
         client = BetaAnalyticsDataClient(credentials=credentials)
@@ -166,8 +176,10 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
     Obtiene datos de Google Analytics 4 para una propiedad específica con opción de filtrar por país
     """
     try:
-        # Usar siempre account_type "acceso" para todas las propiedades
-        account_type = "acceso"
+        # Determinar qué tipo de cuenta usar según la propiedad
+        account_type = "acceso"  # Por defecto para Clarín y Olé
+        if property_id == "255037852":  # OK Diario usa cuenta medios
+            account_type = "medios"
         
         # Intentar primero con archivo local (como antes)
         if credentials_file and os.path.exists(credentials_file):
@@ -332,8 +344,10 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
     Determina automáticamente qué cuenta usar según la propiedad
     """
     try:
-        # Usar siempre account_type "acceso" para todas las propiedades
-        account_type = "acceso"
+        # Determinar qué tipo de cuenta usar según la propiedad
+        account_type = "acceso"  # Por defecto para Clarín y Olé
+        if property_id == "255037852":  # OK Diario usa cuenta medios
+            account_type = "medios"
         
         # Intentar primero con archivo local (como antes)
         if credentials_file and os.path.exists(credentials_file):
