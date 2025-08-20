@@ -100,23 +100,37 @@ def get_oauth2_credentials(credentials_file=None, account_type="acceso"):
                 scopes=['https://www.googleapis.com/auth/analytics.readonly']
             )
             
-            # Intentar refrescar el token si es necesario
+            # Solo refrescar si el token está expirado o no existe
             try:
-                # Siempre intentar refrescar para asegurar token válido
-                if credentials.refresh_token:
-                    logger.info(f"Refrescando token OAuth2 para {account_type}...")
-                    credentials.refresh(Request())
-                    logger.info("Token refrescado exitosamente")
+                if not credentials.token or credentials.expired:
+                    if credentials.refresh_token:
+                        logger.info(f"Token expirado o no existe para {account_type}, refrescando...")
+                        logger.info(f"Client ID: {oauth_config['client_id'][:20]}...")  # Solo mostrar primeros 20 chars
+                        credentials.refresh(Request())
+                        logger.info("Token refrescado exitosamente")
+                    else:
+                        logger.error(f"No hay refresh_token para {account_type}")
+                        st.error(f"🔑 No hay refresh_token configurado para '{account_type}'")
+                        return None
+                else:
+                    logger.info(f"Token OAuth2 válido para {account_type}, no necesita refresh")
             except Exception as refresh_error:
                 error_msg = str(refresh_error).lower()
                 logger.error(f"Error refrescando token para {account_type}: {refresh_error}")
                 
                 if 'invalid_grant' in error_msg:
-                    st.error(f"🔑 Token inválido para cuenta '{account_type}'. El refresh_token puede estar mal configurado en Streamlit secrets.")
-                    st.info(f"Verifica que el secret 'google_oauth_{account_type}' tenga el refresh_token correcto.")
+                    # Intentar usar el token existente si hay uno
+                    if credentials.token:
+                        logger.warning(f"Refresh falló para {account_type}, intentando con token existente")
+                        st.warning(f"⚠️ No se pudo refrescar el token para '{account_type}', usando token existente")
+                        return credentials  # Intentar con el token actual
+                    else:
+                        st.error(f"🔑 Token inválido para cuenta '{account_type}' y no hay token de respaldo.")
+                        st.info(f"Verifica que el secret 'google_oauth_{account_type}' tenga el refresh_token correcto.")
+                        return None
                 else:
                     st.error(f"🔑 Error refrescando token: {refresh_error}")
-                return None
+                    return None
             
             return credentials
             
