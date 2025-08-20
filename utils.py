@@ -1,6 +1,7 @@
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import pandas as pd
+from googleapiclient.discovery import build
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
     RunReportRequest,
@@ -17,6 +18,24 @@ import json
 import os
 
 logger = logging.getLogger(__name__)
+
+def create_ga4_client(creds_data):
+    """
+    Construye el cliente GA4 usando build() como en tu función getAccesos()
+    """
+    creds = Credentials(
+        token=creds_data.get('token'),
+        refresh_token=creds_data.get('refresh_token'),
+        id_token=creds_data.get('id_token'),
+        token_uri=creds_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+        client_id=creds_data.get('client_id'),
+        client_secret=creds_data.get('client_secret'),
+        scopes=creds_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
+    )
+
+    # Construir cliente GA4 usando build() como en getAccesos()
+    ga4_client = build('analyticsdata', 'v1beta', credentials=creds)
+    return ga4_client
 
 def normalize_url(url):
     """
@@ -173,13 +192,17 @@ def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     """
     try:
         logger.info(f"Creando cliente GA4 OAuth con account_type: {account_type}")
-        credentials = get_oauth2_credentials(credentials_file, account_type)
-        if not credentials:
-            logger.error(f"No se pudieron obtener credenciales OAuth para {account_type}")
+        
+        # Obtener credenciales desde Streamlit secrets
+        secret_key = f'google_oauth_{account_type}'
+        if hasattr(st, 'secrets') and secret_key in st.secrets:
+            creds_data = dict(st.secrets[secret_key])  # Convertir a dict
+            client = create_ga4_client(creds_data)
+            return client
+        else:
+            logger.error(f"No se encontró {secret_key} en Streamlit secrets")
             return None
             
-        client = BetaAnalyticsDataClient(credentials=credentials)
-        return client
     except Exception as e:
         logger.error(f"Error creando cliente GA4 con OAuth2: {e}")
         return None
@@ -198,17 +221,8 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
                 with open(credentials_file_path, 'r') as f:
                     cred_data = json.load(f)
                 
-                # Crear credenciales directamente del JSON sin refrescar
-                credentials = Credentials(
-                    token=cred_data.get('token'),
-                    refresh_token=cred_data.get('refresh_token'),
-                    token_uri=cred_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
-                    client_id=cred_data.get('client_id'),
-                    client_secret=cred_data.get('client_secret'),
-                    scopes=cred_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
-                )
-                
-                client = BetaAnalyticsDataClient(credentials=credentials)
+                # Crear cliente GA4 usando build() como en getAccesos()
+                client = create_ga4_client(cred_data)
             else:
                 logger.error(f"No se encontró el archivo {credentials_file_path}")
                 st.error(f"🔑 No se encontró el archivo {credentials_file_path}")
@@ -367,17 +381,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
                 with open(credentials_file_path, 'r') as f:
                     cred_data = json.load(f)
                 
-                # Crear credenciales directamente del JSON sin refrescar
-                credentials = Credentials(
-                    token=cred_data.get('token'),
-                    refresh_token=cred_data.get('refresh_token'),
-                    token_uri=cred_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
-                    client_id=cred_data.get('client_id'),
-                    client_secret=cred_data.get('client_secret'),
-                    scopes=cred_data.get('scopes', ['https://www.googleapis.com/auth/analytics.readonly'])
-                )
-                
-                client = BetaAnalyticsDataClient(credentials=credentials)
+                # Crear cliente GA4 usando build() como en getAccesos()
+                client = create_ga4_client(cred_data)
             else:
                 logger.error(f"No se encontró el archivo {credentials_file_path}")
                 st.error(f"🔑 No se encontró el archivo {credentials_file_path}")
