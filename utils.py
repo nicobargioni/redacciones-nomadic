@@ -2,13 +2,6 @@ import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import pandas as pd
 from googleapiclient.discovery import build
-from google.analytics.data_v1beta import BetaAnalyticsDataClient
-from google.analytics.data_v1beta.types import (
-    RunReportRequest,
-    Dimension,
-    Metric,
-    DateRange
-)
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 import streamlit as st
@@ -145,19 +138,19 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         
         # Definir dimensiones (incluyendo país si se especifica)
         dimensions = [
-            Dimension(name="pagePath"),
-            Dimension(name="date"),
-            Dimension(name="sessionSource"),
-            Dimension(name="sessionMedium")
+            {'name': 'pagePath'},
+            {'name': 'date'},
+            {'name': 'sessionSource'},
+            {'name': 'sessionMedium'}
         ]
         
         # Agregar dimensión de país si se requiere filtro
         if country_filter:
-            dimensions.append(Dimension(name="country"))
+            dimensions.append({'name': 'country'})
         
         # Crear el request body para la API v1beta
         request_body = {
-            'dimensions': [{'name': dim.name} for dim in dimensions],
+            'dimensions': dimensions,
             'metrics': [
                 {'name': 'sessions'},
                 {'name': 'totalUsers'},
@@ -292,31 +285,30 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
             logger.error("No se pudo crear el cliente GA4")
             return None
         
-        # Construir la request
-        request = RunReportRequest(
-            property=f"properties/{property_id}",
-            dimensions=[
-                Dimension(name="pagePath"),
-                Dimension(name="date"),
-                Dimension(name="sessionSource"),
-                Dimension(name="sessionMedium")
+        # Crear el request body para la API v1beta
+        request_body = {
+            'dimensions': [
+                {'name': 'pagePath'},
+                {'name': 'date'},
+                {'name': 'sessionSource'},
+                {'name': 'sessionMedium'}
             ],
-            metrics=[
-                Metric(name="sessions"),
-                Metric(name="totalUsers"),
-                Metric(name="screenPageViews"),
-                Metric(name="averageSessionDuration"),
-                Metric(name="bounceRate"),
-                Metric(name="newUsers"),
-                Metric(name="engagementRate")
+            'metrics': [
+                {'name': 'sessions'},
+                {'name': 'totalUsers'},
+                {'name': 'screenPageViews'},
+                {'name': 'averageSessionDuration'},
+                {'name': 'bounceRate'},
+                {'name': 'newUsers'},
+                {'name': 'engagementRate'}
             ],
-            date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
-            limit=10000
-        )
+            'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
+            'limit': 10000
+        }
         
-        # Ejecutar el reporte
+        # Ejecutar el reporte usando API v1beta
         logger.info(f"Consultando GA4 property {property_id}...")
-        response = client.run_report(request)
+        response = client.properties().runReport(property=f"properties/{property_id}", body=request_body).execute()
         
         # Convertir a DataFrame usando formato API v1beta
         data = []
