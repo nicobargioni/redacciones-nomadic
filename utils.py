@@ -155,59 +155,58 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         if country_filter:
             dimensions.append(Dimension(name="country"))
         
-        # Construir la request
-        request = RunReportRequest(
-            property=f"properties/{property_id}",
-            dimensions=dimensions,
-            metrics=[
-                Metric(name="sessions"),
-                Metric(name="totalUsers"),
-                Metric(name="screenPageViews"),
-                Metric(name="averageSessionDuration"),
-                Metric(name="bounceRate"),
-                Metric(name="newUsers"),
-                Metric(name="engagementRate")
+        # Crear el request body para la API v1beta
+        request_body = {
+            'dimensions': [{'name': dim.name} for dim in dimensions],
+            'metrics': [
+                {'name': 'sessions'},
+                {'name': 'totalUsers'},
+                {'name': 'screenPageViews'},
+                {'name': 'averageSessionDuration'},
+                {'name': 'bounceRate'},
+                {'name': 'newUsers'},
+                {'name': 'engagementRate'}
             ],
-            date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
-            limit=10000
-        )
+            'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
+            'limit': 10000
+        }
         
         # Agregar filtro de país si se especifica
         if country_filter:
-            from google.analytics.data_v1beta.types import FilterExpression, Filter
-            request.dimension_filter = FilterExpression(
-                filter=Filter(
-                    field_name="country",
-                    string_filter=Filter.StringFilter(
-                        value=country_filter,
-                        match_type=Filter.StringFilter.MatchType.EXACT
-                    )
-                )
-            )
+            request_body['dimensionFilter'] = {
+                'filter': {
+                    'fieldName': 'country',
+                    'stringFilter': {
+                        'value': country_filter,
+                        'matchType': 'EXACT'
+                    }
+                }
+            }
         
-        # Ejecutar el reporte
+        # Ejecutar el reporte usando API v1beta
         logger.info(f"Consultando GA4 property {property_id}..." + (f" con filtro de país: {country_filter}" if country_filter else ""))
-        response = client.run_report(request)
+        response = client.properties().runReport(property=f"properties/{property_id}", body=request_body).execute()
         
-        # Convertir a DataFrame
+        # Convertir a DataFrame usando formato API v1beta
         data = []
-        for row in response.rows:
-            row_data = {}
-            # Dimensiones
-            for i, dimension in enumerate(response.dimension_headers):
-                row_data[dimension.name] = row.dimension_values[i].value
-            # Métricas
-            for i, metric in enumerate(response.metric_headers):
-                value = row.metric_values[i].value
-                # Convertir a número si es posible
-                try:
-                    if '.' in value:
-                        row_data[metric.name] = float(value)
-                    else:
-                        row_data[metric.name] = int(value)
-                except:
-                    row_data[metric.name] = value
-            data.append(row_data)
+        if 'rows' in response:
+            for row in response['rows']:
+                row_data = {}
+                # Dimensiones
+                for i, dimension in enumerate(response['dimensionHeaders']):
+                    row_data[dimension['name']] = row['dimensionValues'][i]['value']
+                # Métricas
+                for i, metric in enumerate(response['metricHeaders']):
+                    value = row['metricValues'][i]['value']
+                    # Convertir a número si es posible
+                    try:
+                        if '.' in value:
+                            row_data[metric['name']] = float(value)
+                        else:
+                            row_data[metric['name']] = int(value)
+                    except:
+                        row_data[metric['name']] = value
+                data.append(row_data)
         
         df = pd.DataFrame(data)
         
@@ -319,25 +318,26 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         logger.info(f"Consultando GA4 property {property_id}...")
         response = client.run_report(request)
         
-        # Convertir a DataFrame
+        # Convertir a DataFrame usando formato API v1beta
         data = []
-        for row in response.rows:
-            row_data = {}
-            # Dimensiones
-            for i, dimension in enumerate(response.dimension_headers):
-                row_data[dimension.name] = row.dimension_values[i].value
-            # Métricas
-            for i, metric in enumerate(response.metric_headers):
-                value = row.metric_values[i].value
-                # Convertir a número si es posible
-                try:
-                    if '.' in value:
-                        row_data[metric.name] = float(value)
-                    else:
-                        row_data[metric.name] = int(value)
-                except:
-                    row_data[metric.name] = value
-            data.append(row_data)
+        if 'rows' in response:
+            for row in response['rows']:
+                row_data = {}
+                # Dimensiones
+                for i, dimension in enumerate(response['dimensionHeaders']):
+                    row_data[dimension['name']] = row['dimensionValues'][i]['value']
+                # Métricas
+                for i, metric in enumerate(response['metricHeaders']):
+                    value = row['metricValues'][i]['value']
+                    # Convertir a número si es posible
+                    try:
+                        if '.' in value:
+                            row_data[metric['name']] = float(value)
+                        else:
+                            row_data[metric['name']] = int(value)
+                    except:
+                        row_data[metric['name']] = value
+                data.append(row_data)
         
         df = pd.DataFrame(data)
         
