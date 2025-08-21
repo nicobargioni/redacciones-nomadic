@@ -118,24 +118,14 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
     Obtiene datos de Google Analytics 4 para una propiedad específica con opción de filtrar por país
     """
     try:
-        # Para OK Diario, usar archivo JSON local directamente
-        if property_id == "255037852":  # OK Diario
-            credentials_file_path = "credentials_analytics_acceso_medios.json"
-            if os.path.exists(credentials_file_path):
-                logger.info("Usando credenciales JSON para OK Diario")
-                with open(credentials_file_path, 'r') as f:
-                    cred_data = json.load(f)
-                
-                # Crear cliente GA4 usando build() como en getAccesos()
-                client = create_ga4_client(cred_data)
-            else:
-                logger.error(f"No se encontró el archivo {credentials_file_path}")
-                st.error(f"🔑 No se encontró el archivo {credentials_file_path}")
-                return None
+        # Determinar qué tipo de cuenta usar según la propiedad
+        if property_id == "255037852":  # OK Diario usa acceso_medios
+            account_type = "acceso_medios"
+        else:  # Clarín y Olé usan acceso
+            account_type = "acceso"
         
-        # Para Clarín y Olé, usar Streamlit secrets
-        elif hasattr(st, 'secrets'):
-            account_type = "acceso"  # Clarín y Olé usan acceso
+        # Usar siempre Streamlit secrets
+        if hasattr(st, 'secrets'):
             secret_key = f'google_oauth_{account_type}'
             if secret_key in st.secrets:
                 logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
@@ -278,24 +268,14 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
     Determina automáticamente qué cuenta usar según la propiedad
     """
     try:
-        # Para OK Diario, usar archivo JSON local directamente
-        if property_id == "255037852":  # OK Diario
-            credentials_file_path = "credentials_analytics_acceso_medios.json"
-            if os.path.exists(credentials_file_path):
-                logger.info("Usando credenciales JSON para OK Diario")
-                with open(credentials_file_path, 'r') as f:
-                    cred_data = json.load(f)
-                
-                # Crear cliente GA4 usando build() como en getAccesos()
-                client = create_ga4_client(cred_data)
-            else:
-                logger.error(f"No se encontró el archivo {credentials_file_path}")
-                st.error(f"🔑 No se encontró el archivo {credentials_file_path}")
-                return None
+        # Determinar qué tipo de cuenta usar según la propiedad
+        if property_id == "255037852":  # OK Diario usa acceso_medios
+            account_type = "acceso_medios"
+        else:  # Clarín y Olé usan acceso
+            account_type = "acceso"
         
-        # Para Clarín y Olé, usar Streamlit secrets
-        elif hasattr(st, 'secrets'):
-            account_type = "acceso"  # Clarín y Olé usan acceso
+        # Usar siempre Streamlit secrets
+        if hasattr(st, 'secrets'):
             secret_key = f'google_oauth_{account_type}'
             if secret_key in st.secrets:
                 logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
