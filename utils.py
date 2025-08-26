@@ -399,6 +399,11 @@ def load_google_sheet_data():
         # Obtener credentials desde Streamlit secrets
         if hasattr(st, 'secrets') and 'google_service_account' in st.secrets:
             service_account_info = dict(st.secrets['google_service_account'])
+            
+            # Fix private key format - replace literal \n with actual newlines
+            if 'private_key' in service_account_info:
+                service_account_info['private_key'] = service_account_info['private_key'].replace('\\n', '\n')
+            
             credentials = service_account.Credentials.from_service_account_info(
                 service_account_info,
                 scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
