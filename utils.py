@@ -395,9 +395,9 @@ def load_google_sheet_data():
     try:
         # Obtener spreadsheet_id desde secrets o usar valor por defecto
         if hasattr(st, 'secrets') and 'google_analytics' in st.secrets:
-            spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1bT6C0VI_U7IEmI-ULPHJEvaOkL1mgCozWJIxdNavKBc')
+            spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q')
         else:
-            spreadsheet_id = '1bT6C0VI_U7IEmI-ULPHJEvaOkL1mgCozWJIxdNavKBc'
+            spreadsheet_id = '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q'
             
         public_url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
         
