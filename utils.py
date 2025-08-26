@@ -114,6 +114,8 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         # Determinar qué tipo de cuenta usar según la propiedad
         if property_id == "255037852":  # OK Diario usa acceso_medios
             account_type = "acceso_medios"
+        elif credentials_file == "damian_credentials_analytics_2025.json":  # Mundo Deportivo usa damian
+            account_type = "damian"
         else:  # Clarín y Olé usan acceso
             account_type = "acceso"
         
@@ -263,6 +265,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         # Determinar qué tipo de cuenta usar según la propiedad
         if property_id == "255037852":  # OK Diario usa acceso_medios
             account_type = "acceso_medios"
+        elif credentials_file == "damian_credentials_analytics_2025.json":  # Mundo Deportivo usa damian
+            account_type = "damian"
         else:  # Clarín y Olé usan acceso
             account_type = "acceso"
         

@@ -94,8 +94,8 @@ if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Usar archivo de credenciales (por defecto usa medios, cambiar si es necesario)
-credentials_file = "credentials_analytics_acceso_medios.json"
+# Usar credenciales específicas de Damián para Mundo Deportivo
+credentials_file = "damian_credentials_analytics_2025.json"
 
 # Cargar datos
 with st.spinner('Cargando datos...'):
