@@ -400,9 +400,17 @@ def load_google_sheet_data():
         if hasattr(st, 'secrets') and 'google_service_account' in st.secrets:
             service_account_info = dict(st.secrets['google_service_account'])
             
-            # Fix private key format - replace literal \n with actual newlines
+            # Fix private key format - clean and format properly
             if 'private_key' in service_account_info:
-                service_account_info['private_key'] = service_account_info['private_key'].replace('\\n', '\n')
+                private_key = service_account_info['private_key']
+                # Replace literal \n with actual newlines
+                private_key = private_key.replace('\\n', '\n')
+                # Clean any extra whitespace or problematic chars
+                private_key = private_key.strip()
+                # Ensure proper formatting
+                if not private_key.endswith('\n'):
+                    private_key += '\n'
+                service_account_info['private_key'] = private_key
             
             credentials = service_account.Credentials.from_service_account_info(
                 service_account_info,
