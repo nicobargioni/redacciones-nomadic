@@ -19,7 +19,7 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard Mundo Deportivo",
+    page_title="Dashboard Mundo Deportivooooo",
     page_icon="⚽",
     layout="wide"
 )
