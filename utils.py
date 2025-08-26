@@ -611,7 +611,7 @@ def create_media_config():
         'mundodeportivo': {
             'name': 'Mundo Deportivo',
             'domain': 'mundodeportivo.com',
-            'property_id': '000000000',
+            'property_id': '416839948',
             'icon': '🏆',
             'color': '#0066cc'
         },
