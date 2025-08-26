@@ -27,7 +27,7 @@ st.set_page_config(
 # Obtener configuración del medio
 media_config = create_media_config()['mundodeportivo']
 
-st.title(f"{media_config['icon']} Dashboard de {media_config['name']}")
+st.title(f"{media_config['icon']} Dashboardddd de {media_config['name']}")
 st.markdown("---")
 
 # Sidebar con opciones
