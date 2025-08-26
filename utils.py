@@ -390,18 +390,45 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
 @st.cache_data(ttl=300)
 def load_google_sheet_data():
     """
-    Carga los datos del Google Sheet público usando Streamlit secrets o valor por defecto
+    Carga los datos del Google Sheet privado usando cuenta de servicio con impersonación
     """
     try:
-        # Obtener spreadsheet_id desde secrets o usar valor por defecto
-        if hasattr(st, 'secrets') and 'google_analytics' in st.secrets:
-            spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q')
-        else:
-            spreadsheet_id = '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q'
-            
-        public_url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
         
-        df = pd.read_csv(public_url)
+        # Obtener credentials desde Streamlit secrets
+        if hasattr(st, 'secrets') and 'google_service_account' in st.secrets:
+            service_account_info = dict(st.secrets['google_service_account'])
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info,
+                scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+            )
+            
+            # Obtener spreadsheet_id desde secrets
+            spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q')
+            
+            # Crear cliente de Google Sheets
+            service = build('sheets', 'v4', credentials=credentials)
+            
+            # Leer datos del sheet
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range='A:Z'  # Leer todas las columnas
+            ).execute()
+            
+            values = result.get('values', [])
+            if not values:
+                logger.warning("No se encontraron datos en el Google Sheet")
+                return pd.DataFrame()
+            
+            # Convertir a DataFrame
+            df = pd.DataFrame(values[1:], columns=values[0])  # Primera fila como headers
+            
+        else:
+            # Fallback al método público anterior
+            spreadsheet_id = '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q'
+            public_url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
+            df = pd.read_csv(public_url)
         
         # Procesar fechas si existen
         date_columns = [col for col in df.columns if 'date' in col.lower() or 'fecha' in col.lower()]
