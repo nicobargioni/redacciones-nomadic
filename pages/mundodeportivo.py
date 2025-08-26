@@ -108,13 +108,16 @@ with st.spinner('Cargando datos...'):
     else:
         sheets_filtered = pd.DataFrame()
 
-# DEBUG: Mostrar info del Sheet FUERA del spinner
+# DEBUG: FORCE VISIBILITY 
+st.error("🔍 DEBUG NUEVO - Si ves esto, el deploy funcionó")
 if sheets_df is not None:
-    st.write(f"🔍 DEBUG Sheet: {len(sheets_df)} filas total")
+    st.error(f"🔍 DEBUG Sheet: {len(sheets_df)} filas total")
     if 'url' in sheets_df.columns:
         mundo_urls = sheets_df[sheets_df['url'].astype(str).str.contains('mundodeportivo.com', case=False, na=False)]
-        st.write(f"🔍 DEBUG URLs Mundo Deportivo encontradas: {len(mundo_urls)}")
-    st.write(f"🔍 DEBUG URLs filtradas para MD: {len(sheets_filtered)}")
+        st.error(f"🔍 DEBUG URLs Mundo Deportivo encontradas: {len(mundo_urls)}")
+    st.error(f"🔍 DEBUG URLs filtradas para MD: {len(sheets_filtered)}")
+else:
+    st.error("🔍 DEBUG: sheets_df es None!")
     
     # Cargar datos de GA4 con o sin filtro de país
     if country_filter != "Todos los países":
