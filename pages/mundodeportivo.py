@@ -102,18 +102,19 @@ with st.spinner('Cargando datos...'):
     # Cargar datos del Google Sheet
     sheets_df = load_google_sheet_data()
     
-    # DEBUG: Mostrar info del Sheet
-    if sheets_df is not None:
-        st.write(f"🔍 DEBUG Sheet: {len(sheets_df)} filas total")
-        if 'url' in sheets_df.columns:
-            mundo_urls = sheets_df[sheets_df['url'].astype(str).str.contains('mundodeportivo.com', case=False, na=False)]
-            st.write(f"🔍 DEBUG URLs Mundo Deportivo encontradas: {len(mundo_urls)}")
-    
     # Filtrar solo URLs de Mundo Deportivo
     if sheets_df is not None:
         sheets_filtered = filter_media_urls(sheets_df, media_config['domain'])
     else:
         sheets_filtered = pd.DataFrame()
+
+# DEBUG: Mostrar info del Sheet FUERA del spinner
+if sheets_df is not None:
+    st.write(f"🔍 DEBUG Sheet: {len(sheets_df)} filas total")
+    if 'url' in sheets_df.columns:
+        mundo_urls = sheets_df[sheets_df['url'].astype(str).str.contains('mundodeportivo.com', case=False, na=False)]
+        st.write(f"🔍 DEBUG URLs Mundo Deportivo encontradas: {len(mundo_urls)}")
+    st.write(f"🔍 DEBUG URLs filtradas para MD: {len(sheets_filtered)}")
     
     # Cargar datos de GA4 con o sin filtro de país
     if country_filter != "Todos los países":
