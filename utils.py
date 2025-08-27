@@ -48,41 +48,41 @@ def normalize_url(url):
     url_clean = re.sub(r'^www\.', '', url_clean)
     
     # Remover /amp o .amp del final
-    url_clean = re.sub(r'(/amp|\.amp)/?$', '', url_clean)
+    url_clean = re.sub(r'/amp/?$', '', url_clean)
+    url_clean = re.sub(r'\.amp/?$', '', url_clean)
     
-    # Remover slash final
+    # Remover trailing slash
     url_clean = url_clean.rstrip('/')
     
-    # Remover parámetros de tracking comunes
-    patterns_to_remove = [
-        r'\?utm_[^&]*(&utm_[^&]*)*$',  # Solo parámetros UTM
-        r'[?&]fbclid=[^&]*',            # Facebook click ID
-        r'[?&]gclid=[^&]*',             # Google click ID
-        r'[?&]ref=[^&]*',               # Referencias
-        r'#.*$'                         # Fragmentos
-    ]
+    try:
+        # Parse la URL para remover query parameters comunes de tracking
+        if '?' in url_clean:
+            base_url, query_string = url_clean.split('?', 1)
+            # Parse query parameters
+            parsed_qs = parse_qs(query_string)
+            
+            # Lista de parámetros a preservar (si necesitas algunos)
+            params_to_keep = []
+            
+            # Filtrar solo los parámetros que queremos mantener
+            filtered_params = {k: v for k, v in parsed_qs.items() 
+                             if k in params_to_keep}
+            
+            # Si hay parámetros filtrados, reconstruir la URL
+            if filtered_params:
+                new_qs = urlencode(filtered_params, doseq=True)
+                url_clean = f"{base_url}?{new_qs}"
+            else:
+                url_clean = base_url
+    except:
+        pass
     
-    for pattern in patterns_to_remove:
-        url_clean = re.sub(pattern, '', url_clean)
-    
-    # Limpiar múltiples ? o &
-    url_clean = re.sub(r'[?&]+', '?', url_clean)
-    url_clean = url_clean.rstrip('?&')
+    # Remover fragmentos (#)
+    if '#' in url_clean:
+        url_clean = url_clean.split('#')[0]
     
     return url_clean
 
-def parse_date_range(date_str):
-    """
-    Convierte una fecha en formato string a formato de fecha para GA4
-    """
-    if date_str == "today":
-        return datetime.now().strftime('%Y-%m-%d')
-    elif date_str.endswith("daysAgo"):
-        days = int(date_str.replace("daysAgo", ""))
-        date = datetime.now() - timedelta(days=days)
-        return date.strftime('%Y-%m-%d')
-    else:
-        return date_str
 
 def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     """
@@ -130,48 +130,44 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
                 st.error(f"🔑 Falta configurar {secret_key} en Streamlit secrets")
                 return None
         else:
-            logger.error("No se encontraron Streamlit secrets")
+            logger.error("No se encontraron credenciales válidas")
+            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets.")
             return None
         
-        if client is None:
+        if not client:
             logger.error("No se pudo crear el cliente GA4")
             return None
         
-        # Parsear las fechas
-        start_date_parsed = parse_date_range(start_date)
-        end_date_parsed = parse_date_range(end_date)
+        # Definir dimensiones (incluyendo país si se especifica)
+        dimensions = [
+            {'name': 'pagePath'},
+            {'name': 'date'},
+            {'name': 'sessionSource'},
+            {'name': 'sessionMedium'}
+        ]
         
-        # Crear request para GA4 Data API
+        # Agregar dimensión de país si se requiere filtro
+        if country_filter:
+            dimensions.append({'name': 'country'})
+        
+        # Crear el request body para la API v1beta
         request_body = {
-            'dateRanges': [{
-                'startDate': start_date_parsed,
-                'endDate': end_date_parsed
-            }],
-            'dimensions': [
-                {'name': 'date'},
-                {'name': 'pagePath'},
-                {'name': 'sessionSource'},
-                {'name': 'sessionMedium'},
-                {'name': 'deviceCategory'}
-            ],
+            'dimensions': dimensions,
             'metrics': [
                 {'name': 'sessions'},
                 {'name': 'totalUsers'},
-                {'name': 'newUsers'},
                 {'name': 'screenPageViews'},
                 {'name': 'averageSessionDuration'},
                 {'name': 'bounceRate'},
+                {'name': 'newUsers'},
                 {'name': 'engagementRate'}
             ],
-            'limit': 100000,
-            'orderBys': [{
-                'desc': True,
-                'metric': {'metricName': 'sessions'}
-            }]
+            'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
+            'limit': 10000
         }
         
         # Agregar filtro de país si se especifica
-        if country_filter and country_filter != "Todos los países":
+        if country_filter:
             request_body['dimensionFilter'] = {
                 'filter': {
                     'fieldName': 'country',
@@ -182,61 +178,80 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
                 }
             }
         
-        # Hacer la solicitud a GA4
-        response = client.properties().runReport(
-            property=f'properties/{property_id}',
-            body=request_body
-        ).execute()
+        # Ejecutar el reporte usando API v1beta
+        logger.info(f"Consultando GA4 property {property_id}..." + (f" con filtro de país: {country_filter}" if country_filter else ""))
+        response = client.properties().runReport(property=f"properties/{property_id}", body=request_body).execute()
         
-        # Procesar respuesta
-        if 'rows' not in response:
-            logger.warning(f"No hay datos disponibles para el período especificado con filtro de país: {country_filter}")
-            return pd.DataFrame()
-        
-        # Convertir a DataFrame
+        # Convertir a DataFrame usando formato API v1beta
         data = []
-        for row in response['rows']:
-            row_data = {}
-            for i, dimension in enumerate(row['dimensionValues']):
-                dim_name = request_body['dimensions'][i]['name']
-                row_data[dim_name] = dimension['value']
-            for i, metric in enumerate(row['metricValues']):
-                metric_name = request_body['metrics'][i]['name']
-                value = metric['value']
-                # Convertir métricas numéricas
-                if metric_name in ['sessions', 'totalUsers', 'newUsers', 'screenPageViews']:
-                    row_data[metric_name] = int(value) if value != '(not set)' else 0
-                else:
-                    row_data[metric_name] = float(value) if value != '(not set)' else 0.0
-            data.append(row_data)
+        if 'rows' in response:
+            for row in response['rows']:
+                row_data = {}
+                # Dimensiones
+                for i, dimension in enumerate(response['dimensionHeaders']):
+                    row_data[dimension['name']] = row['dimensionValues'][i]['value']
+                # Métricas
+                for i, metric in enumerate(response['metricHeaders']):
+                    value = row['metricValues'][i]['value']
+                    # Convertir a número si es posible
+                    try:
+                        if '.' in value:
+                            row_data[metric['name']] = float(value)
+                        else:
+                            row_data[metric['name']] = int(value)
+                    except:
+                        row_data[metric['name']] = value
+                data.append(row_data)
         
         df = pd.DataFrame(data)
         
-        # Convertir columna date a datetime
+        # Convertir fecha
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
         
-        logger.info(f"Datos de GA4 obtenidos exitosamente: {len(df)} filas con filtro de país: {country_filter}")
+        logger.info(f"GA4 datos obtenidos: {len(df)} filas" + (f" (filtrado por {country_filter})" if country_filter else ""))
         return df
         
     except Exception as e:
-        if 'PERMISSION_DENIED' in str(e):
-            logger.error(f"Error de permisos para property_id {property_id}")
-            st.error("🚫 Error de permisos: No tienes acceso a esta propiedad de GA4.")
-            st.markdown("""
-            ### ⚠️ Error de permisos
-            
-            **Para OAuth2:**
-            - Verifica que la cuenta Google asociada tenga acceso a la propiedad GA4
-            - Intenta regenerar el token de acceso
-            
-            **Para cuenta de servicio:**
-            - Agrega el email de la cuenta de servicio en GA4
-            - Admin > Property Access Management > Add users
+        logger.error(f"Error obteniendo datos de GA4: {e}")
+        
+        # Mensajes de error más específicos
+        error_msg = str(e).lower()
+        if 'invalid_grant' in error_msg:
+            st.error("🔐 Error de autenticación: El token de acceso ha expirado o es inválido.")
+            st.warning("""
+            **Solución requerida:**
+            1. Regenerar los tokens OAuth2 para Google Analytics
+            2. Actualizar `google_oauth_medios` en Streamlit secrets
+            3. Verificar que la cuenta tiene acceso a la property ID
             """)
+        elif '403' in str(e) or 'forbidden' in error_msg:
+            st.error("🚫 Error de permisos: No tienes acceso a esta propiedad de GA4.")
+        elif '404' in str(e) or 'not found' in error_msg:
+            st.error("❌ Error: Property ID no encontrada en GA4.")
         else:
-            logger.error(f"Error obteniendo datos de GA4 con filtro de país: {e}")
-            st.error(f"❌ Error al conectar con GA4: {str(e)}")
+            st.error(f"Error al obtener datos de GA4: {str(e)}")
+        
+        # Mensajes de ayuda específicos
+        if "403" in str(e) or "permission" in str(e).lower():
+            st.warning("""
+            ⚠️ **Error de permisos**
+            
+            Para OAuth2:
+            1. Verifica que la cuenta Google asociada tenga acceso a la propiedad GA4
+            2. Intenta regenerar el token de acceso
+            
+            Para cuenta de servicio:
+            1. Agrega el email de la cuenta de servicio en GA4
+            2. Admin > Property Access Management > Add users
+            """)
+        elif "401" in str(e):
+            st.warning("""
+            ⚠️ **Token expirado o inválido**
+            
+            El token de acceso puede haber expirado. 
+            Necesitas regenerar el token OAuth2.
+            """)
         
         return None
 
@@ -266,120 +281,179 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
                 st.error(f"🔑 Falta configurar {secret_key} en Streamlit secrets")
                 return None
         else:
-            logger.error("No se encontraron Streamlit secrets")
+            logger.error("No se encontraron credenciales válidas")
+            st.error("🔑 No se encontraron credenciales. Configura Streamlit secrets.")
             return None
         
-        if client is None:
+        if not client:
             logger.error("No se pudo crear el cliente GA4")
             return None
         
-        # Parsear las fechas
-        start_date_parsed = parse_date_range(start_date)
-        end_date_parsed = parse_date_range(end_date)
-        
-        # Crear request para GA4 Data API
+        # Crear el request body para la API v1beta
         request_body = {
-            'dateRanges': [{
-                'startDate': start_date_parsed,
-                'endDate': end_date_parsed
-            }],
             'dimensions': [
-                {'name': 'date'},
                 {'name': 'pagePath'},
+                {'name': 'date'},
                 {'name': 'sessionSource'},
-                {'name': 'sessionMedium'},
-                {'name': 'deviceCategory'}
+                {'name': 'sessionMedium'}
             ],
             'metrics': [
                 {'name': 'sessions'},
                 {'name': 'totalUsers'},
-                {'name': 'newUsers'},
                 {'name': 'screenPageViews'},
                 {'name': 'averageSessionDuration'},
                 {'name': 'bounceRate'},
+                {'name': 'newUsers'},
                 {'name': 'engagementRate'}
             ],
-            'limit': 100000,
-            'orderBys': [{
-                'desc': True,
-                'metric': {'metricName': 'sessions'}
-            }]
+            'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
+            'limit': 10000
         }
         
-        # Hacer la solicitud a GA4
-        response = client.properties().runReport(
-            property=f'properties/{property_id}',
-            body=request_body
-        ).execute()
+        # Ejecutar el reporte usando API v1beta
+        logger.info(f"Consultando GA4 property {property_id}...")
+        response = client.properties().runReport(property=f"properties/{property_id}", body=request_body).execute()
         
-        # Procesar respuesta
-        if 'rows' not in response:
-            logger.warning("No hay datos disponibles para el período especificado")
-            return pd.DataFrame()
-        
-        # Convertir a DataFrame
+        # Convertir a DataFrame usando formato API v1beta
         data = []
-        for row in response['rows']:
-            row_data = {}
-            for i, dimension in enumerate(row['dimensionValues']):
-                dim_name = request_body['dimensions'][i]['name']
-                row_data[dim_name] = dimension['value']
-            for i, metric in enumerate(row['metricValues']):
-                metric_name = request_body['metrics'][i]['name']
-                value = metric['value']
-                # Convertir métricas numéricas
-                if metric_name in ['sessions', 'totalUsers', 'newUsers', 'screenPageViews']:
-                    row_data[metric_name] = int(value) if value != '(not set)' else 0
-                else:
-                    row_data[metric_name] = float(value) if value != '(not set)' else 0.0
-            data.append(row_data)
+        if 'rows' in response:
+            for row in response['rows']:
+                row_data = {}
+                # Dimensiones
+                for i, dimension in enumerate(response['dimensionHeaders']):
+                    row_data[dimension['name']] = row['dimensionValues'][i]['value']
+                # Métricas
+                for i, metric in enumerate(response['metricHeaders']):
+                    value = row['metricValues'][i]['value']
+                    # Convertir a número si es posible
+                    try:
+                        if '.' in value:
+                            row_data[metric['name']] = float(value)
+                        else:
+                            row_data[metric['name']] = int(value)
+                    except:
+                        row_data[metric['name']] = value
+                data.append(row_data)
         
         df = pd.DataFrame(data)
         
-        # Convertir columna date a datetime
+        # Convertir fecha
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
         
-        logger.info(f"Datos de GA4 obtenidos exitosamente: {len(df)} filas")
+        logger.info(f"GA4 datos obtenidos: {len(df)} filas")
         return df
         
     except Exception as e:
-        if 'PERMISSION_DENIED' in str(e):
-            logger.error(f"Error de permisos para property_id {property_id}")
-            st.error("🚫 Error de permisos: No tienes acceso a esta propiedad de GA4.")
-            st.markdown("""
-            ### ⚠️ Error de permisos
-            
-            **Para OAuth2:**
-            - Verifica que la cuenta Google asociada tenga acceso a la propiedad GA4
-            - Intenta regenerar el token de acceso
-            
-            **Para cuenta de servicio:**
-            - Agrega el email de la cuenta de servicio en GA4
-            - Admin > Property Access Management > Add users
+        logger.error(f"Error obteniendo datos de GA4: {e}")
+        
+        # Mensajes de error más específicos
+        error_msg = str(e).lower()
+        if 'invalid_grant' in error_msg:
+            st.error("🔐 Error de autenticación: El token de acceso ha expirado o es inválido.")
+            st.warning("""
+            **Solución requerida:**
+            1. Regenerar los tokens OAuth2 para Google Analytics
+            2. Actualizar `google_oauth_medios` en Streamlit secrets
+            3. Verificar que la cuenta tiene acceso a la property ID
             """)
+        elif '403' in str(e) or 'forbidden' in error_msg:
+            st.error("🚫 Error de permisos: No tienes acceso a esta propiedad de GA4.")
+        elif '404' in str(e) or 'not found' in error_msg:
+            st.error("❌ Error: Property ID no encontrada en GA4.")
         else:
-            logger.error(f"Error obteniendo datos de GA4: {e}")
-            st.error(f"❌ Error al conectar con GA4: {str(e)}")
+            st.error(f"Error al obtener datos de GA4: {str(e)}")
+        
+        # Mensajes de ayuda específicos
+        if "403" in str(e) or "permission" in str(e).lower():
+            st.warning("""
+            ⚠️ **Error de permisos**
+            
+            Para OAuth2:
+            1. Verifica que la cuenta Google asociada tenga acceso a la propiedad GA4
+            2. Intenta regenerar el token de acceso
+            
+            Para cuenta de servicio:
+            1. Agrega el email de la cuenta de servicio en GA4
+            2. Admin > Property Access Management > Add users
+            """)
+        elif "401" in str(e):
+            st.warning("""
+            ⚠️ **Token expirado o inválido**
+            
+            El token de acceso puede haber expirado. 
+            Necesitas regenerar el token OAuth2.
+            """)
         
         return None
 
 @st.cache_data(ttl=300)
 def load_google_sheet_data():
     """
-    Carga los datos del Google Sheet público usando Streamlit secrets o valor por defecto
-    NOTA: Temporalmente usando método público hasta resolver problema de service account
+    Carga los datos del Google Sheet privado usando cuenta de servicio con impersonación
     """
     try:
-        # TEMPORAL: Usar método público
-        spreadsheet_id = '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q'
-        if hasattr(st, 'secrets') and 'google_analytics' in st.secrets:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        
+        # Obtener credentials desde Streamlit secrets
+        if hasattr(st, 'secrets') and 'google_service_account' in st.secrets:
+            service_account_info = dict(st.secrets['google_service_account'])
+            
+            # Fix private key format - clean and format properly
+            if 'private_key' in service_account_info:
+                private_key = service_account_info['private_key']
+                
+                # Replace literal \n with actual newlines
+                private_key = private_key.replace('\\n', '\n')
+                
+                # Fix the space after BEGIN PRIVATE KEY that should be a newline
+                private_key = private_key.replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
+                private_key = private_key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+                
+                # Clean any extra whitespace or problematic chars
+                private_key = private_key.strip()
+                # Ensure proper formatting
+                if not private_key.endswith('\n'):
+                    private_key += '\n'
+                    
+                service_account_info['private_key'] = private_key
+            
+            try:
+                credentials = service_account.Credentials.from_service_account_info(
+                    service_account_info,
+                    scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+                )
+            except Exception as e:
+                st.error(f"ERROR creando credenciales: {str(e)}")
+                st.error(f"Tipo de error: {type(e).__name__}")
+                raise
+            
+            # Obtener spreadsheet_id desde secrets
             spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q')
-        
-        # Verificar si el Sheet es público, si no lo es, el usuario debe compartirlo
-        public_url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
-        
-        df = pd.read_csv(public_url)
+            
+            # Crear cliente de Google Sheets
+            service = build('sheets', 'v4', credentials=credentials)
+            
+            # Leer datos del sheet
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range='A:Z'  # Leer todas las columnas
+            ).execute()
+            
+            values = result.get('values', [])
+            if not values:
+                logger.warning("No se encontraron datos en el Google Sheet")
+                return pd.DataFrame()
+            
+            # Convertir a DataFrame
+            df = pd.DataFrame(values[1:], columns=values[0])  # Primera fila como headers
+            
+        else:
+            # Fallback al método público anterior
+            spreadsheet_id = '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q'
+            public_url = f'https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv'
+            df = pd.read_csv(public_url)
         
         # Procesar fechas si existen
         date_columns = [col for col in df.columns if 'date' in col.lower() or 'fecha' in col.lower()]
@@ -393,13 +467,8 @@ def load_google_sheet_data():
         return df
         
     except Exception as e:
-        logger.error(f"Error al cargar el spreadsheet: {e}")
-        st.error(f"Error al cargar el spreadsheet: {e}")
-        st.info("""
-        Para solucionar este error:
-        1. Asegúrate de que el Google Sheet sea público (Compartir > Cualquiera con el enlace puede ver)
-        2. O configura una cuenta de servicio con los permisos adecuados
-        """)
+        logger.error(f"Error al cargar Google Sheet: {e}")
+        st.error(f"Error al cargar el spreadsheet: {str(e)}")
         return None
 
 def filter_media_urls(df, domain):
@@ -423,39 +492,59 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
     Mergea los datos del Google Sheet con los datos de GA4
     """
     if sheets_df is None or sheets_df.empty or ga4_df is None or ga4_df.empty:
-        return sheets_df
+        return pd.DataFrame()
     
     # Normalizar URLs en ambos DataFrames
-    sheets_df['url_normalized'] = sheets_df['url'].apply(normalize_url)
-    ga4_df['url_normalized'] = ga4_df['pagePath'].apply(lambda x: normalize_url(f"{domain}{x}"))
+    if 'url' not in sheets_df.columns:
+        st.warning("No se encontró columna 'url' en los datos del Google Sheet")
+        return pd.DataFrame()
     
-    # Agrupar GA4 por URL normalizada y sumar métricas
-    ga4_grouped = ga4_df.groupby('url_normalized').agg({
-        'sessions': 'sum',
-        'totalUsers': 'sum',
-        'newUsers': 'sum',
-        'screenPageViews': 'sum',
-        'averageSessionDuration': 'mean',
-        'bounceRate': 'mean',
-        'engagementRate': 'mean'
-    }).reset_index()
+    # Crear columna de URL normalizada
+    sheets_df['url_normalized'] = sheets_df['url'].apply(normalize_url)
+    
+    # Normalizar pagePath de GA4 
+    try:
+        ga4_df['url_normalized'] = ga4_df['pagePath'].apply(lambda x: normalize_url(f"{domain}{x}"))
+    except Exception as e:
+        logger.error(f"Error normalizando URLs de GA4: {e}")
+        return pd.DataFrame()
+    
+    # Agrupar GA4 por URL normalizada para obtener métricas agregadas
+    # Verificar qué columnas están disponibles y son numéricas
+    agg_dict = {}
+    
+    # Columnas para suma
+    sum_columns = ['sessions', 'totalUsers', 'screenPageViews', 'newUsers']
+    for col in sum_columns:
+        if col in ga4_df.columns:
+            agg_dict[col] = 'sum'
+    
+    # Columnas para promedio (necesitan ser numéricas)
+    mean_columns = ['averageSessionDuration', 'bounceRate', 'engagementRate']
+    for col in mean_columns:
+        if col in ga4_df.columns:
+            # Convertir a numérico, reemplazando errores con NaN
+            ga4_df[col] = pd.to_numeric(ga4_df[col], errors='coerce')
+            agg_dict[col] = 'mean'
+    
+    ga4_grouped = ga4_df.groupby('url_normalized').agg(agg_dict).reset_index()
     
     # Hacer el merge
     merged_df = sheets_df.merge(
         ga4_grouped,
         on='url_normalized',
-        how='left'
+        how='left',
+        suffixes=('', '_ga4')
     )
     
-    # Llenar valores NaN con 0 para métricas
-    metrics_columns = ['sessions', 'totalUsers', 'newUsers', 'screenPageViews', 
-                      'averageSessionDuration', 'bounceRate', 'engagementRate']
-    
-    for col in metrics_columns:
+    # Llenar NaN con 0 para métricas
+    metric_columns = ['sessions', 'totalUsers', 'screenPageViews', 
+                     'averageSessionDuration', 'bounceRate', 'newUsers', 'engagementRate']
+    for col in metric_columns:
         if col in merged_df.columns:
             merged_df[col] = merged_df[col].fillna(0)
     
-    logger.info(f"Merge completado: {len(merged_df)} filas totales")
+    logger.info(f"Merge completado: {len(merged_df)} filas con datos combinados")
     return merged_df
 
 def create_media_config():
