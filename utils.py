@@ -434,11 +434,21 @@ def load_google_sheet_data():
             # Crear cliente de Google Sheets
             service = build('sheets', 'v4', credentials=credentials)
             
+            # Debug: Mostrar información de conexión
+            st.error(f"🔍 DEBUG: Conectando al Sheet ID: {spreadsheet_id}")
+            st.error(f"🔍 DEBUG: Email de service account: {service_account_info.get('client_email', 'No encontrado')}")
+            
             # Leer datos del sheet
-            result = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range='A:Z'  # Leer todas las columnas
-            ).execute()
+            try:
+                result = service.spreadsheets().values().get(
+                    spreadsheetId=spreadsheet_id,
+                    range='A:Z'  # Leer todas las columnas
+                ).execute()
+                st.error("🔍 DEBUG: ¡Conexión a Google Sheets exitosa!")
+            except Exception as sheet_error:
+                st.error(f"🔍 DEBUG: Error específico al acceder al Sheet: {sheet_error}")
+                st.error(f"🔍 DEBUG: Tipo de error: {type(sheet_error).__name__}")
+                raise
             
             values = result.get('values', [])
             if not values:
