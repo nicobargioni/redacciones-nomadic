@@ -403,8 +403,12 @@ def load_google_sheet_data():
             
             # Decodificar el JSON desde base64
             try:
-                # Obtener el string base64
-                credentials_base64 = st.secrets['google_service_account_base64']
+                # Obtener el string base64 (acceder al campo específico)
+                credentials_base64 = st.secrets['google_service_account_base64']['credentials']
+                
+                # Debug: verificar que es un string
+                st.error(f"🔍 DEBUG: Tipo de credentials_base64: {type(credentials_base64)}")
+                st.error(f"🔍 DEBUG: Primeros 50 chars: {str(credentials_base64)[:50]}...")
                 
                 # Decodificar base64 a bytes
                 credentials_bytes = base64.b64decode(credentials_base64)
