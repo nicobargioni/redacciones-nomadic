@@ -404,22 +404,20 @@ def load_google_sheet_data():
             if 'private_key' in service_account_info:
                 private_key = service_account_info['private_key']
                 
-                # Debug: show what we're receiving
-                st.error(f"DEBUG: Private key first 50 chars: {private_key[:50]}...")
-                st.error(f"DEBUG: Private key last 50 chars: ...{private_key[-50:]}")
-                
                 # Replace literal \n with actual newlines
                 private_key = private_key.replace('\\n', '\n')
+                
+                # Fix the space after BEGIN PRIVATE KEY that should be a newline
+                private_key = private_key.replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
+                private_key = private_key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+                
                 # Clean any extra whitespace or problematic chars
                 private_key = private_key.strip()
                 # Ensure proper formatting
                 if not private_key.endswith('\n'):
                     private_key += '\n'
+                    
                 service_account_info['private_key'] = private_key
-                
-                # Debug: show after processing
-                st.error(f"DEBUG: After processing first 50: {private_key[:50]}...")
-                st.error(f"DEBUG: After processing last 50: ...{private_key[-50:]}")
             
             credentials = service_account.Credentials.from_service_account_info(
                 service_account_info,
