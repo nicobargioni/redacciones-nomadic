@@ -31,17 +31,28 @@ def decode_pickle_base64_credentials(encoded_string):
         logger.error(f"Error decodificando credenciales pickle+base64: {str(e)}")
         return None
 
-def check_login():
+def check_login(page_name=None):
     """
-    Sistema de login manual con credenciales desde Streamlit secrets
-    Returns True si el usuario está autenticado, False si no
-    """
-    # Inicializar estado de autenticación
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
+    Sistema de login independiente por página con control de acceso
     
-    if not st.session_state.authenticated:
+    Args:
+        page_name: Nombre del medio (ej: 'clarin', 'ole', 'mundodeportivo')
+    
+    Returns:
+        True si el usuario está autenticado y tiene permisos, False si no
+    """
+    # Usar session_state específico por página para login independiente
+    auth_key = f'authenticated_{page_name}' if page_name else 'authenticated'
+    user_key = f'current_user_{page_name}' if page_name else 'current_user'
+    
+    # Inicializar estado de autenticación para esta página
+    if auth_key not in st.session_state:
+        st.session_state[auth_key] = False
+    
+    if not st.session_state[auth_key]:
         st.title("🔐 Acceso Requerido")
+        if page_name:
+            st.subheader(f"Dashboard de {page_name.title()}")
         st.markdown("---")
         
         # Obtener usuarios desde Streamlit secrets (OBLIGATORIO)
@@ -51,14 +62,6 @@ def check_login():
             else:
                 st.error("🚨 **Error de configuración**")
                 st.error("Faltan las credenciales de login en Streamlit secrets.")
-                st.code("""
-Agrega esto a tu archivo secrets.toml:
-
-[login_users]
-admin = "tu_password_admin"
-cliente = "tu_password_cliente"
-redaccion = "tu_password_redaccion"
-                """, language="toml")
                 st.stop()
         except Exception as e:
             logger.error(f"Error cargando usuarios: {e}")
@@ -66,17 +69,35 @@ redaccion = "tu_password_redaccion"
             st.stop()
         
         # Formulario de login
-        with st.form("login_form"):
+        with st.form(f"login_form_{page_name}"):
             username = st.text_input("Usuario")
             password = st.text_input("Contraseña", type="password")
             submitted = st.form_submit_button("Iniciar Sesión")
             
             if submitted:
                 if username in users and password == users[username]:
-                    st.session_state.authenticated = True
-                    st.session_state.current_user = username
-                    st.success("¡Login exitoso!")
-                    st.rerun()
+                    # Verificar permisos de acceso
+                    if page_name:
+                        # Admin y redacciones pueden acceder a todo
+                        if username == 'admin' or '_redaccion' in username:
+                            st.session_state[auth_key] = True
+                            st.session_state[user_key] = username
+                            st.success("¡Login exitoso!")
+                            st.rerun()
+                        # Clientes solo pueden acceder a su página específica
+                        elif f"{page_name}_cliente" == username:
+                            st.session_state[auth_key] = True
+                            st.session_state[user_key] = username
+                            st.success("¡Login exitoso!")
+                            st.rerun()
+                        else:
+                            st.error("❌ No tienes permisos para acceder a este dashboard")
+                    else:
+                        # Para páginas sin restricción específica
+                        st.session_state[auth_key] = True
+                        st.session_state[user_key] = username
+                        st.success("¡Login exitoso!")
+                        st.rerun()
                 else:
                     st.error("Usuario o contraseña incorrectos")
         
@@ -84,12 +105,22 @@ redaccion = "tu_password_redaccion"
         st.markdown("*Contacta al administrador para obtener credenciales de acceso*")
         return False
     
-    # Mostrar botón de logout en sidebar
+    # Mostrar info de usuario y logout en sidebar
     with st.sidebar:
-        st.markdown(f"👤 **Usuario:** {st.session_state.get('current_user', 'Desconocido')}")
-        if st.button("🚪 Cerrar Sesión"):
-            st.session_state.authenticated = False
-            st.session_state.current_user = None
+        current_user = st.session_state.get(user_key, 'Desconocido')
+        st.markdown(f"👤 **Usuario:** {current_user}")
+        
+        # Indicar tipo de acceso
+        if current_user == 'admin':
+            st.markdown("🔑 *Acceso administrativo*")
+        elif '_redaccion' in current_user:
+            st.markdown("📝 *Acceso redacción*")
+        elif '_cliente' in current_user:
+            st.markdown("👥 *Acceso cliente*")
+            
+        if st.button("🚪 Cerrar Sesión", key=f"logout_{page_name}"):
+            st.session_state[auth_key] = False
+            st.session_state[user_key] = None
             st.rerun()
     
     return True

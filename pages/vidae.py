@@ -27,7 +27,7 @@ st.set_page_config(
 )
 
 # Verificar login antes de mostrar contenido
-if not check_login():
+if not check_login('vidae'):
     st.stop()
 
 # Obtener configuración del medio
