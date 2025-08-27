@@ -12,7 +12,8 @@ from utils import (
     get_ga4_data, 
     filter_media_urls,
     merge_sheets_with_ga4,
-    create_media_config
+    create_media_config,
+    check_login
 )
 
 # Configuración de la página
@@ -21,6 +22,10 @@ st.set_page_config(
     page_icon="📰",
     layout="wide"
 )
+
+# Verificar login antes de mostrar contenido
+if not check_login():
+    st.stop()
 
 # Obtener configuración del medio
 media_config = create_media_config()['clarin']

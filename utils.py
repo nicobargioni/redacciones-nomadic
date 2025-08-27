@@ -11,6 +11,7 @@ import json
 import base64
 import pickle
 import os
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,39 @@ def decode_pickle_base64_credentials(encoded_string):
     except Exception as e:
         logger.error(f"Error decodificando credenciales pickle+base64: {str(e)}")
         return None
+
+def check_login():
+    """
+    Sistema de login usando st.login con credenciales desde Streamlit secrets
+    Returns True si el usuario está autenticado, False si no
+    """
+    def authenticate(username, password):
+        """Función de autenticación usando secrets"""
+        try:
+            # Obtener usuarios desde Streamlit secrets
+            if hasattr(st, 'secrets') and 'login_users' in st.secrets:
+                users = dict(st.secrets['login_users'])
+            else:
+                # Fallback a credenciales por defecto si no hay secrets
+                st.warning("⚠️ Usando credenciales por defecto. Configura 'login_users' en secrets para mayor seguridad.")
+                users = {
+                    "admin": "nomadic2024",
+                    "cliente": "cliente123", 
+                    "redaccion": "redaccion123"
+                }
+            
+            return username in users and password == users[username]
+            
+        except Exception as e:
+            logger.error(f"Error en autenticación: {e}")
+            return False
+    
+    # Usar st.login para manejar autenticación
+    if st.login("login_form", user_authenticator=authenticate):
+        return True
+    else:
+        st.info("Por favor, inicia sesión para acceder al dashboard")
+        return False
 
 def create_ga4_client(creds_data):
     """

@@ -14,7 +14,8 @@ from utils import (
     filter_media_urls,
     merge_sheets_with_ga4,
     create_media_config,
-    normalize_url
+    normalize_url,
+    check_login
 )
 
 # Configuración de la página
@@ -23,6 +24,10 @@ st.set_page_config(
     page_icon="⚽",
     layout="wide"
 )
+
+# Verificar login antes de mostrar contenido
+if not check_login():
+    st.stop()
 
 # Obtener configuración del medio
 media_config = create_media_config()['ole']
