@@ -8,9 +8,26 @@ import streamlit as st
 from datetime import datetime, timedelta
 import logging
 import json
+from cryptography.fernet import Fernet
 import os
 
 logger = logging.getLogger(__name__)
+
+def decrypt_credentials_file(encrypted_file_path, encryption_key):
+    """
+    Desencripta un archivo de credenciales encriptado
+    """
+    try:
+        fernet = Fernet(encryption_key.encode())
+        
+        with open(encrypted_file_path, 'rb') as file:
+            encrypted_data = file.read()
+        
+        decrypted_data = fernet.decrypt(encrypted_data)
+        return json.loads(decrypted_data.decode())
+    except Exception as e:
+        logger.error(f"Error desencriptando credenciales: {str(e)}")
+        return None
 
 def create_ga4_client(creds_data):
     """
@@ -91,15 +108,33 @@ def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     try:
         logger.info(f"Creando cliente GA4 OAuth con account_type: {account_type}")
         
-        # Obtener credenciales desde Streamlit secrets
-        secret_key = f'google_oauth_{account_type}'
-        if hasattr(st, 'secrets') and secret_key in st.secrets:
-            creds_data = dict(st.secrets[secret_key])  # Convertir a dict
-            client = create_ga4_client(creds_data)
-            return client
+        # Caso especial para credenciales encriptadas de Damián
+        if account_type == "damian":
+            # Buscar credenciales encriptadas y clave de desencriptación
+            if hasattr(st, 'secrets'):
+                if 'damian_encryption_key' in st.secrets and os.path.exists("damian_credentials_analytics_2025.encrypted"):
+                    encryption_key = st.secrets['damian_encryption_key']
+                    creds_data = decrypt_credentials_file("damian_credentials_analytics_2025.encrypted", encryption_key)
+                    if creds_data:
+                        client = create_ga4_client(creds_data)
+                        logger.info("Cliente GA4 creado con credenciales encriptadas de Damián")
+                        return client
+                    else:
+                        logger.error("No se pudieron desencriptar las credenciales de Damián")
+                        return None
+                else:
+                    logger.error("No se encontró la clave de encriptación o el archivo encriptado de Damián")
+                    return None
         else:
-            logger.error(f"No se encontró {secret_key} en Streamlit secrets")
-            return None
+            # Obtener credenciales desde Streamlit secrets (caso normal)
+            secret_key = f'google_oauth_{account_type}'
+            if hasattr(st, 'secrets') and secret_key in st.secrets:
+                creds_data = dict(st.secrets[secret_key])  # Convertir a dict
+                client = create_ga4_client(creds_data)
+                return client
+            else:
+                logger.error(f"No se encontró {secret_key} en Streamlit secrets")
+                return None
             
     except Exception as e:
         logger.error(f"Error creando cliente GA4 con OAuth2: {e}")
