@@ -33,36 +33,66 @@ def decode_pickle_base64_credentials(encoded_string):
 
 def check_login():
     """
-    Sistema de login usando st.login con credenciales desde Streamlit secrets
+    Sistema de login manual con credenciales desde Streamlit secrets
     Returns True si el usuario está autenticado, False si no
     """
-    def authenticate(username, password):
-        """Función de autenticación usando secrets"""
+    # Inicializar estado de autenticación
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if not st.session_state.authenticated:
+        st.title("🔐 Acceso Requerido")
+        st.markdown("---")
+        
+        # Obtener usuarios desde Streamlit secrets (OBLIGATORIO)
         try:
-            # Obtener usuarios desde Streamlit secrets
             if hasattr(st, 'secrets') and 'login_users' in st.secrets:
                 users = dict(st.secrets['login_users'])
             else:
-                # Fallback a credenciales por defecto si no hay secrets
-                st.warning("⚠️ Usando credenciales por defecto. Configura 'login_users' en secrets para mayor seguridad.")
-                users = {
-                    "admin": "nomadic2024",
-                    "cliente": "cliente123", 
-                    "redaccion": "redaccion123"
-                }
-            
-            return username in users and password == users[username]
-            
+                st.error("🚨 **Error de configuración**")
+                st.error("Faltan las credenciales de login en Streamlit secrets.")
+                st.code("""
+Agrega esto a tu archivo secrets.toml:
+
+[login_users]
+admin = "tu_password_admin"
+cliente = "tu_password_cliente"
+redaccion = "tu_password_redaccion"
+                """, language="toml")
+                st.stop()
         except Exception as e:
-            logger.error(f"Error en autenticación: {e}")
-            return False
-    
-    # Usar st.login para manejar autenticación
-    if st.login("login_form", user_authenticator=authenticate):
-        return True
-    else:
-        st.info("Por favor, inicia sesión para acceder al dashboard")
+            logger.error(f"Error cargando usuarios: {e}")
+            st.error("🚨 Error crítico al cargar credenciales. Contacta al administrador.")
+            st.stop()
+        
+        # Formulario de login
+        with st.form("login_form"):
+            username = st.text_input("Usuario")
+            password = st.text_input("Contraseña", type="password")
+            submitted = st.form_submit_button("Iniciar Sesión")
+            
+            if submitted:
+                if username in users and password == users[username]:
+                    st.session_state.authenticated = True
+                    st.session_state.current_user = username
+                    st.success("¡Login exitoso!")
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos")
+        
+        st.markdown("---")
+        st.markdown("*Contacta al administrador para obtener credenciales de acceso*")
         return False
+    
+    # Mostrar botón de logout en sidebar
+    with st.sidebar:
+        st.markdown(f"👤 **Usuario:** {st.session_state.get('current_user', 'Desconocido')}")
+        if st.button("🚪 Cerrar Sesión"):
+            st.session_state.authenticated = False
+            st.session_state.current_user = None
+            st.rerun()
+    
+    return True
 
 def create_ga4_client(creds_data):
     """
