@@ -406,9 +406,6 @@ def load_google_sheet_data():
                 # Obtener el string base64 (acceder al campo específico)
                 credentials_base64 = st.secrets['google_service_account_base64']['credentials']
                 
-                # Debug: verificar que es un string
-                st.error(f"🔍 DEBUG: Tipo de credentials_base64: {type(credentials_base64)}")
-                st.error(f"🔍 DEBUG: Primeros 50 chars: {str(credentials_base64)[:50]}...")
                 
                 # Decodificar base64 a bytes
                 credentials_bytes = base64.b64decode(credentials_base64)
@@ -438,21 +435,11 @@ def load_google_sheet_data():
             # Crear cliente de Google Sheets
             service = build('sheets', 'v4', credentials=credentials)
             
-            # Debug: Mostrar información de conexión
-            st.error(f"🔍 DEBUG: Conectando al Sheet ID: {spreadsheet_id}")
-            st.error(f"🔍 DEBUG: Email de service account: {service_account_info.get('client_email', 'No encontrado')}")
-            
             # Leer datos del sheet
-            try:
-                result = service.spreadsheets().values().get(
-                    spreadsheetId=spreadsheet_id,
-                    range='A:Z'  # Leer todas las columnas
-                ).execute()
-                st.error("🔍 DEBUG: ¡Conexión a Google Sheets exitosa!")
-            except Exception as sheet_error:
-                st.error(f"🔍 DEBUG: Error específico al acceder al Sheet: {sheet_error}")
-                st.error(f"🔍 DEBUG: Tipo de error: {type(sheet_error).__name__}")
-                raise
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range='A:Z'  # Leer todas las columnas
+            ).execute()
             
             values = result.get('values', [])
             if not values:

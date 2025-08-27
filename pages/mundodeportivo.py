@@ -19,7 +19,7 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard Mundo Deportivooooo",
+    page_title="Dashboard Mundo Deportivo",
     page_icon="⚽",
     layout="wide"
 )
@@ -27,7 +27,7 @@ st.set_page_config(
 # Obtener configuración del medio
 media_config = create_media_config()['mundodeportivo']
 
-st.title(f"{media_config['icon']} Dashboardddd de {media_config['name']}")
+st.title(f"{media_config['icon']} Dashboard de {media_config['name']}")
 st.markdown("---")
 
 # Sidebar con opciones
@@ -108,17 +108,6 @@ with st.spinner('Cargando datos...'):
     else:
         sheets_filtered = pd.DataFrame()
 
-# DEBUG: FORCE VISIBILITY 
-st.error("🔍 DEBUG NUEVO - Si ves esto, el deploy funcionó")
-if sheets_df is not None:
-    st.error(f"🔍 DEBUG Sheet: {len(sheets_df)} filas total")
-    if 'url' in sheets_df.columns:
-        mundo_urls = sheets_df[sheets_df['url'].astype(str).str.contains('mundodeportivo.com', case=False, na=False)]
-        st.error(f"🔍 DEBUG URLs Mundo Deportivo encontradas: {len(mundo_urls)}")
-    st.error(f"🔍 DEBUG URLs filtradas para MD: {len(sheets_filtered)}")
-else:
-    st.error("🔍 DEBUG: sheets_df es None!")
-    
     # Cargar datos de GA4 con o sin filtro de país
     if country_filter != "Todos los países":
         ga4_df = get_ga4_data_with_country(
