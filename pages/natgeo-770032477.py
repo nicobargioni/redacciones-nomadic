@@ -21,13 +21,13 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard National Geographic",
+    page_title="Dashboard National Geographic - Cliente",
     page_icon="🌍",
     layout="wide"
 )
 
 # Verificar login antes de mostrar contenido
-if not check_login('natgeo'):
+if not check_login('natgeo', page_type='cliente'):
     st.stop()
 
 # Obtener configuración del medio

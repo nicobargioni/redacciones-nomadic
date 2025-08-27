@@ -21,17 +21,17 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard Bumeran",
-    page_icon="💼",
+    page_title="Dashboard Mundo Deportivo - Cliente",
+    page_icon="⚽",
     layout="wide"
 )
 
 # Verificar login antes de mostrar contenido
-if not check_login('bumeran'):
+if not check_login('mundodeportivo', page_type='cliente'):
     st.stop()
 
 # Obtener configuración del medio
-media_config = create_media_config()['bumeran']
+media_config = create_media_config()['mundodeportivo']
 
 st.title(f"{media_config['icon']} Dashboard de {media_config['name']}")
 st.markdown("---")
@@ -43,7 +43,7 @@ st.sidebar.header("⚙️ Configuración")
 date_option = st.sidebar.selectbox(
     "Tipo de rango de fechas:",
     ["Preestablecido", "Personalizado"],
-    key="date_option_bumeran"
+    key="date_option_mundodeportivo"
 )
 
 if date_option == "Preestablecido":
@@ -56,7 +56,7 @@ if date_option == "Preestablecido":
             "30daysAgo": "Últimos 30 días",
             "90daysAgo": "Últimos 90 días"
         }[x],
-        key="preset_range_bumeran"
+        key="preset_range_mundodeportivo"
     )
     start_date_param = date_range
     end_date_param = "today"
@@ -66,13 +66,13 @@ else:
         start_date_custom = st.date_input(
             "Fecha inicio:",
             value=datetime.now() - timedelta(days=7),
-            key="start_date_bumeran"
+            key="start_date_mundodeportivo"
         )
     with col2:
         end_date_custom = st.date_input(
             "Fecha fin:",
             value=datetime.now(),
-            key="end_date_bumeran"
+            key="end_date_mundodeportivo"
         )
     
     # Convertir fechas a formato GA4
@@ -91,7 +91,7 @@ st.sidebar.subheader("🌍 Filtro Geográfico")
 country_filter = st.sidebar.selectbox(
     "Filtrar por país:",
     ["Todos los países", "United States", "Spain", "Argentina", "Mexico", "Colombia", "Chile", "Peru"],
-    key="country_filter_bumeran",
+    key="country_filter_mundodeportivo",
     help="Filtra los datos de GA4 por país específico"
 )
 
@@ -100,20 +100,20 @@ if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Usar archivo de credenciales (por defecto usa medios, cambiar si es necesario)
-credentials_file = "credentials_analytics_acceso_medios.json"
+# Usar credenciales específicas de Damián para Mundo Deportivo
+credentials_file = "damian_credentials_analytics_2025.json"
 
 # Cargar datos
 with st.spinner('Cargando datos...'):
     # Cargar datos del Google Sheet
     sheets_df = load_google_sheet_data()
     
-    # Filtrar solo URLs de Bumeran
+    # Filtrar solo URLs de Mundo Deportivo
     if sheets_df is not None:
         sheets_filtered = filter_media_urls(sheets_df, media_config['domain'])
     else:
         sheets_filtered = pd.DataFrame()
-    
+
     # Cargar datos de GA4 con o sin filtro de país
     if country_filter != "Todos los países":
         ga4_df = get_ga4_data_with_country(
@@ -184,7 +184,7 @@ else:
             "👤 Filtrar por Autor:",
             options=authors,
             default=None,
-            key="author_filter_bumeran"
+            key="author_filter_mundodeportivo"
         )
         
         if author_filter:
@@ -204,7 +204,7 @@ else:
                     "🌐 Filtrar por Fuente:",
                     options=sources,
                     default=None,
-                    key="source_filter_bumeran",
+                    key="source_filter_mundodeportivo",
                     help="Fuente del tráfico (Google, Facebook, etc.)"
                 )
         
@@ -216,7 +216,7 @@ else:
                     "📡 Filtrar por Medio:",
                     options=mediums,
                     default=None,
-                    key="medium_filter_bumeran",
+                    key="medium_filter_mundodeportivo",
                     help="Medio del tráfico (organic, cpc, referral, etc.)"
                 )
     
@@ -325,14 +325,14 @@ else:
             # Descripción del KPI
             st.markdown(f"""
             ### 🎯 Objetivo del Mes
-            **Meta:** 800,000 de Page Views{' desde ' + country_filter if country_filter != "Todos los países" else ''}
+            **Meta:** 2,500,000 de Page Views{' desde ' + country_filter if country_filter != "Todos los países" else ''}
             
             Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de {media_config['name']}. 
             Se consideran únicamente las URLs registradas en el Google Sheet{', filtrando por ' + country_filter if country_filter != "Todos los países" else ''}.
             """)
             
             # Configuración del KPI
-            monthly_goal = 800000  # 800 mil Page Views
+            monthly_goal = 2500000  # 2.5 millones de Page Views
             current_progress = total_monthly_pageviews
             progress_percentage = (current_progress / monthly_goal) * 100 if monthly_goal > 0 else 0
             
@@ -493,7 +493,7 @@ else:
             st.download_button(
                 label="📥 Descargar datos",
                 data=csv,
-                file_name=f"bumeran_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                file_name=f"mundodeportivo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
         
@@ -779,7 +779,7 @@ else:
                 sort_by = st.selectbox(
                     "Ordenar por:",
                     ['Page Views', 'Notas Redactadas', 'Sesiones', 'Usuarios'],
-                    key="sort_authors_bumeran"
+                    key="sort_authors_mundodeportivo"
                 )
                 
                 # Ordenar según selección
@@ -798,7 +798,7 @@ else:
                 st.download_button(
                     label="📥 Descargar Performance por Autor",
                     data=csv_performance,
-                    file_name=f"bumeran_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=f"mundodeportivo_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
             else:

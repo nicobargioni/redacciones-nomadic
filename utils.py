@@ -31,12 +31,13 @@ def decode_pickle_base64_credentials(encoded_string):
         logger.error(f"Error decodificando credenciales pickle+base64: {str(e)}")
         return None
 
-def check_login(page_name=None):
+def check_login(page_name=None, page_type=None):
     """
     Sistema de login independiente por página con control de acceso
     
     Args:
         page_name: Nombre del medio (ej: 'clarin', 'ole', 'mundodeportivo')
+        page_type: Tipo de página ('redaccion' o 'cliente')
     
     Returns:
         True si el usuario está autenticado y tiene permisos, False si no
@@ -52,7 +53,12 @@ def check_login(page_name=None):
     if not st.session_state[auth_key]:
         st.title("🔐 Acceso Requerido")
         if page_name:
-            st.subheader(f"Dashboard de {page_name.title()}")
+            if page_type == 'redaccion':
+                st.subheader(f"Dashboard de {page_name.title()} - Redacción")
+            elif page_type == 'cliente':
+                st.subheader(f"Dashboard de {page_name.title()} - Cliente")
+            else:
+                st.subheader(f"Dashboard de {page_name.title()}")
         st.markdown("---")
         
         # Obtener usuarios desde Streamlit secrets (OBLIGATORIO)
@@ -76,20 +82,32 @@ def check_login(page_name=None):
             
             if submitted:
                 if username in users and password == users[username]:
-                    # Verificar permisos de acceso
-                    if page_name:
-                        # Admin y redacciones pueden acceder a todo
-                        if username == 'admin' or '_redaccion' in username:
+                    # Verificar permisos de acceso según el tipo de página
+                    if page_name and page_type:
+                        # Admin puede acceder a todo
+                        if username == 'admin':
                             st.session_state[auth_key] = True
                             st.session_state[user_key] = username
                             st.success("¡Login exitoso!")
                             st.rerun()
-                        # Clientes solo pueden acceder a su página específica
-                        elif f"{page_name}_cliente" == username:
-                            st.session_state[auth_key] = True
-                            st.session_state[user_key] = username
-                            st.success("¡Login exitoso!")
-                            st.rerun()
+                        # Páginas de redacción: solo usuarios de redacción
+                        elif page_type == 'redaccion':
+                            if '_redaccion' in username:
+                                st.session_state[auth_key] = True
+                                st.session_state[user_key] = username
+                                st.success("¡Login exitoso!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Solo usuarios de redacción pueden acceder a esta página")
+                        # Páginas de cliente: solo el cliente específico
+                        elif page_type == 'cliente':
+                            if f"{page_name}_cliente" == username:
+                                st.session_state[auth_key] = True
+                                st.session_state[user_key] = username
+                                st.success("¡Login exitoso!")
+                                st.rerun()
+                            else:
+                                st.error("❌ No tienes permisos para acceder a este dashboard de cliente")
                         else:
                             st.error("❌ No tienes permisos para acceder a este dashboard")
                     else:

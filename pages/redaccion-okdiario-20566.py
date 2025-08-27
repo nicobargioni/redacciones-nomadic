@@ -9,8 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import (
     load_google_sheet_data, 
-    get_ga4_data,
-    get_ga4_data_with_country,
+    get_ga4_data, 
     filter_media_urls,
     merge_sheets_with_ga4,
     create_media_config,
@@ -21,17 +20,17 @@ from utils import (
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard Mundo Deportivo",
-    page_icon="⚽",
+    page_title="Dashboard OK Diario - Redacción",
+    page_icon="🗞️",
     layout="wide"
 )
 
 # Verificar login antes de mostrar contenido
-if not check_login('mundodeportivo'):
+if not check_login('okdiario', page_type='redaccion'):
     st.stop()
 
 # Obtener configuración del medio
-media_config = create_media_config()['mundodeportivo']
+media_config = create_media_config()['okdiario']
 
 st.title(f"{media_config['icon']} Dashboard de {media_config['name']}")
 st.markdown("---")
@@ -43,7 +42,7 @@ st.sidebar.header("⚙️ Configuración")
 date_option = st.sidebar.selectbox(
     "Tipo de rango de fechas:",
     ["Preestablecido", "Personalizado"],
-    key="date_option_mundodeportivo"
+    key="date_option_okdiario"
 )
 
 if date_option == "Preestablecido":
@@ -56,7 +55,7 @@ if date_option == "Preestablecido":
             "30daysAgo": "Últimos 30 días",
             "90daysAgo": "Últimos 90 días"
         }[x],
-        key="preset_range_mundodeportivo"
+        key="preset_range_okdiario"
     )
     start_date_param = date_range
     end_date_param = "today"
@@ -66,13 +65,13 @@ else:
         start_date_custom = st.date_input(
             "Fecha inicio:",
             value=datetime.now() - timedelta(days=7),
-            key="start_date_mundodeportivo"
+            key="start_date_okdiario"
         )
     with col2:
         end_date_custom = st.date_input(
             "Fecha fin:",
             value=datetime.now(),
-            key="end_date_mundodeportivo"
+            key="end_date_okdiario"
         )
     
     # Convertir fechas a formato GA4
@@ -85,96 +84,42 @@ else:
         start_date_param = "7daysAgo"
         end_date_param = "today"
 
-# Filtro por país
-st.sidebar.markdown("---")
-st.sidebar.subheader("🌍 Filtro Geográfico")
-country_filter = st.sidebar.selectbox(
-    "Filtrar por país:",
-    ["Todos los países", "United States", "Spain", "Argentina", "Mexico", "Colombia", "Chile", "Peru"],
-    key="country_filter_mundodeportivo",
-    help="Filtra los datos de GA4 por país específico"
-)
-
 # Botón de actualización
 if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Usar credenciales específicas de Damián para Mundo Deportivo
-credentials_file = "damian_credentials_analytics_2025.json"
+# Usar archivo de credenciales correcto para OK Diario
+credentials_file = "credentials_analytics_acceso_medios.json"
 
 # Cargar datos
 with st.spinner('Cargando datos...'):
     # Cargar datos del Google Sheet
     sheets_df = load_google_sheet_data()
     
-    # Filtrar solo URLs de Mundo Deportivo
+    # Filtrar solo URLs de OK Diario
     if sheets_df is not None:
         sheets_filtered = filter_media_urls(sheets_df, media_config['domain'])
     else:
         sheets_filtered = pd.DataFrame()
-
-    # Cargar datos de GA4 con o sin filtro de país
-    if country_filter != "Todos los países":
-        ga4_df = get_ga4_data_with_country(
-            media_config['property_id'],
-            credentials_file,
-            start_date=start_date_param,
-            end_date=end_date_param,
-            country_filter=country_filter
-        )
-    else:
-        ga4_df = get_ga4_data(
-            media_config['property_id'],
-            credentials_file,
-            start_date=start_date_param,
-            end_date=end_date_param
-        )
-
-# Verificar si hay datos en el Sheet
-if sheets_filtered.empty:
-    st.warning("📝 Sin notas en sheets de control")
-    st.info(f"""
-    **Estado actual:**
-    - No hay URLs de {media_config['domain']} registradas en el Google Sheet de control
-    - Para ver el dashboard completo, es necesario agregar artículos de {media_config['name']} al Google Sheet
-    """)
     
-    # Mostrar solo datos de GA4 si están disponibles
-    if ga4_df is not None and not ga4_df.empty:
-        st.subheader("📊 Datos disponibles de Google Analytics 4")
-        
-        # Métricas de GA4
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("📊 Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
-        with col2:
-            st.metric("👥 Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
-        with col3:
-            st.metric("👁️ Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
-        with col4:
-            st.metric("📉 Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
-        
-        st.markdown("---")
-        st.dataframe(ga4_df, use_container_width=True)
-    else:
-        st.info("No hay datos de Google Analytics 4 disponibles para mostrar.")
+    # Cargar datos de GA4
+    ga4_df = get_ga4_data(
+        media_config['property_id'],
+        credentials_file,
+        start_date=start_date_param,
+        end_date=end_date_param
+    )
 
-elif ga4_df is None or ga4_df.empty:
-    st.error("⚠️ No se encontraron datos de Google Analytics 4")
+# Verificar si hay datos
+if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
+    st.error("⚠️ No se encontraron datos para mostrar")
     st.info(f"""
     **Posibles causas:**
+    - No hay URLs de {media_config['domain']} en el Google Sheet
     - Error al conectar con Google Analytics 4
     - Credenciales incorrectas o sin permisos para la propiedad {media_config['property_id']}
-    - Property ID no configurado correctamente
-    - No hay datos para el país seleccionado: {country_filter}
     """)
-    
-    # Mostrar solo datos del Sheet
-    st.subheader("📋 Datos del Google Sheet")
-    st.dataframe(sheets_filtered, use_container_width=True)
-
 else:
     # Agregar filtro por autor si hay datos
     author_filter = None
@@ -184,7 +129,7 @@ else:
             "👤 Filtrar por Autor:",
             options=authors,
             default=None,
-            key="author_filter_mundodeportivo"
+            key="author_filter_okdiario"
         )
         
         if author_filter:
@@ -204,7 +149,7 @@ else:
                     "🌐 Filtrar por Fuente:",
                     options=sources,
                     default=None,
-                    key="source_filter_mundodeportivo",
+                    key="source_filter_okdiario",
                     help="Fuente del tráfico (Google, Facebook, etc.)"
                 )
         
@@ -216,27 +161,25 @@ else:
                     "📡 Filtrar por Medio:",
                     options=mediums,
                     default=None,
-                    key="medium_filter_mundodeportivo",
+                    key="medium_filter_okdiario",
                     help="Medio del tráfico (organic, cpc, referral, etc.)"
                 )
     
+
+    
     # Métricas de datos cargados
-    st.sidebar.markdown("---")
     st.sidebar.metric("URLs en Sheet", len(sheets_filtered) if not sheets_filtered.empty else 0)
     if ga4_df is not None:
         st.sidebar.metric("Páginas en GA4", ga4_df['pagePath'].nunique())
     else:
         st.sidebar.metric("Páginas en GA4", 0)
     
-    if country_filter != "Todos los países":
-        st.sidebar.success(f"🌍 Filtrado por: {country_filter}")
-    
     # Mergear datos si ambos están disponibles
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
         # Aplicar filtros de fuente y medio a GA4 antes del merge
         ga4_filtered = ga4_df.copy()
         
-        # Agregar columna url_normalized a ga4_filtered para uso posterior
+        # Agregar columna url_normalized a ga4_filtered ANTES de aplicar filtros
         ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
             lambda x: normalize_url(f"{media_config['domain']}{x}")
         )
@@ -288,22 +231,12 @@ else:
         current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
         current_month_today = datetime.now().strftime('%Y-%m-%d')
         
-        # Si hay filtro de país, aplicarlo también al KPI mensual
-        if country_filter != "Todos los países":
-            ga4_monthly_df = get_ga4_data_with_country(
-                media_config['property_id'],
-                credentials_file,
-                start_date=current_month_start,
-                end_date=current_month_today,
-                country_filter=country_filter
-            )
-        else:
-            ga4_monthly_df = get_ga4_data(
-                media_config['property_id'],
-                credentials_file,
-                start_date=current_month_start,
-                end_date=current_month_today
-            )
+        ga4_monthly_df = get_ga4_data(
+            media_config['property_id'],
+            credentials_file,
+            start_date=current_month_start,
+            end_date=current_month_today
+        )
         
         # Calcular Page Views solo de URLs que están en el Sheet
         total_monthly_pageviews = 0
@@ -317,22 +250,19 @@ else:
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
         
         with tab1:
-            if country_filter != "Todos los países":
-                st.subheader(f"📊 KPI Mensual - {media_config['name']} ({country_filter})")
-            else:
-                st.subheader(f"📊 KPI Mensual - {media_config['name']}")
+            st.subheader("📊 KPI Mensual - OK Diario")
             
             # Descripción del KPI
-            st.markdown(f"""
+            st.markdown("""
             ### 🎯 Objetivo del Mes
-            **Meta:** 2,500,000 de Page Views{' desde ' + country_filter if country_filter != "Todos los países" else ''}
+            **Meta:** 3,000,000 de Page Views
             
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de {media_config['name']}. 
-            Se consideran únicamente las URLs registradas en el Google Sheet{', filtrando por ' + country_filter if country_filter != "Todos los países" else ''}.
+            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de OK Diario. 
+            Se consideran únicamente las URLs registradas en el Google Sheet, proporcionando una vista específica del rendimiento editorial.
             """)
             
             # Configuración del KPI
-            monthly_goal = 2500000  # 2.5 millones de Page Views
+            monthly_goal = 3000000  # 3 millones de Page Views
             current_progress = total_monthly_pageviews
             progress_percentage = (current_progress / monthly_goal) * 100 if monthly_goal > 0 else 0
             
@@ -351,7 +281,7 @@ else:
                     "📈 Progreso Actual", 
                     f"{current_progress:,}",
                     delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
-                    help=f"Page Views acumulados en lo que va del mes{' desde ' + country_filter if country_filter != 'Todos los países' else ''}"
+                    help="Page Views acumulados en lo que va del mes (solo artículos del Sheet)"
                 )
             
             with col3:
@@ -371,7 +301,7 @@ else:
                 mode = "gauge+number+delta",
                 value = current_progress,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': f"Progreso hacia Objetivo Mensual{' - ' + country_filter if country_filter != 'Todos los países' else ''}"},
+                title = {'text': "Progreso hacia Objetivo Mensual (Artículos del Sheet)"},
                 delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
                 gauge = {
                     'axis': {'range': [None, monthly_goal * 1.2]},
@@ -447,8 +377,6 @@ else:
             
             • **Fórmula**: Promedio Diario × {days_total_month} días del mes = {projected_monthly:,.0f} Page Views proyectados
             
-            {f'• **Filtro Geográfico**: Solo se consideran Page Views desde {country_filter}' if country_filter != "Todos los países" else '• **Sin filtro geográfico**: Se consideran Page Views de todos los países'}
-            
             • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement se mantiene constante. 
             Los fines de semana, feriados, eventos especiales o cambios en la estrategia editorial pueden afectar el resultado final.
             
@@ -493,7 +421,7 @@ else:
             st.download_button(
                 label="📥 Descargar datos",
                 data=csv,
-                file_name=f"mundodeportivo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                file_name=f"okdiario_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
         
@@ -620,17 +548,6 @@ else:
                         ga4_for_trends['date_parsed'] >= start_date
                     ].copy()
                     
-                    # Calcular period_name
-                    if date_option == "Preestablecido":
-                        period_name = {
-                            "7daysAgo": "7 días",
-                            "14daysAgo": "14 días", 
-                            "30daysAgo": "30 días",
-                            "90daysAgo": "90 días"
-                        }.get(date_range, "período seleccionado")
-                    else:
-                        period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
-                    
                     if not ga4_trends_filtered.empty:
                         # Tendencia diaria (solo URLs del Sheet en el rango seleccionado)
                         daily_metrics = ga4_trends_filtered.groupby('date').agg({
@@ -662,6 +579,16 @@ else:
                             line=dict(color='orange')
                         ))
                         
+                        if date_option == "Preestablecido":
+                            period_name = {
+                                "7daysAgo": "7 días",
+                                "14daysAgo": "14 días", 
+                                "30daysAgo": "30 días",
+                                "90daysAgo": "90 días"
+                            }.get(date_range, "período seleccionado")
+                        else:
+                            period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
+                        
                         fig_trend.update_layout(
                             title=f'Tendencia de Tráfico Diario - Últimos {period_name}',
                             xaxis_title='Fecha',
@@ -686,7 +613,8 @@ else:
                         )
                         st.plotly_chart(fig_weekly, use_container_width=True)
                     else:
-                        st.info(f"No hay datos de tendencias para los últimos {period_name}")
+                        period_display = period_name if date_option == "Preestablecido" else f"período {period_name}"
+                        st.info(f"No hay datos de tendencias para el {period_display}")
                 else:
                     st.info("No hay datos de tendencias para las URLs del Sheet")
             else:
@@ -779,7 +707,7 @@ else:
                 sort_by = st.selectbox(
                     "Ordenar por:",
                     ['Page Views', 'Notas Redactadas', 'Sesiones', 'Usuarios'],
-                    key="sort_authors_mundodeportivo"
+                    key="sort_authors_okdiario"
                 )
                 
                 # Ordenar según selección
@@ -798,11 +726,36 @@ else:
                 st.download_button(
                     label="📥 Descargar Performance por Autor",
                     data=csv_performance,
-                    file_name=f"mundodeportivo_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=f"okdiario_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
             else:
                 st.info("No hay datos de autores disponibles para mostrar performance")
+    
+    elif ga4_df is not None and not ga4_df.empty:
+        # Solo datos de GA4
+        st.warning(f"⚠️ No se encontraron URLs de {media_config['name']} en el Google Sheet. Mostrando solo datos de GA4.")
+        
+        # Métricas de GA4
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("📊 Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
+        with col2:
+            st.metric("👥 Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
+        with col3:
+            st.metric("👁️ Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
+        with col4:
+            st.metric("📉 Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
+        
+        st.markdown("---")
+        st.subheader("Datos de Google Analytics 4")
+        st.dataframe(ga4_df, use_container_width=True)
+    
+    else:
+        # Solo datos del Sheet
+        st.warning("⚠️ No se pudieron obtener datos de GA4. Mostrando solo datos del Google Sheet.")
+        st.dataframe(sheets_filtered, use_container_width=True)
 
 # Footer
 st.markdown("---")

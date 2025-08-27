@@ -13,24 +13,22 @@ from utils import (
     filter_media_urls,
     merge_sheets_with_ga4,
     create_media_config,
-    normalize_url
-,
     check_login
 )
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Dashboard OK Diario",
-    page_icon="🗞️",
+    page_title="Dashboard Clarín - Cliente",
+    page_icon="📰",
     layout="wide"
 )
 
 # Verificar login antes de mostrar contenido
-if not check_login('okdiario'):
+if not check_login('clarin', page_type='cliente'):
     st.stop()
 
 # Obtener configuración del medio
-media_config = create_media_config()['okdiario']
+media_config = create_media_config()['clarin']
 
 st.title(f"{media_config['icon']} Dashboard de {media_config['name']}")
 st.markdown("---")
@@ -42,7 +40,7 @@ st.sidebar.header("⚙️ Configuración")
 date_option = st.sidebar.selectbox(
     "Tipo de rango de fechas:",
     ["Preestablecido", "Personalizado"],
-    key="date_option_okdiario"
+    key="date_option_clarin"
 )
 
 if date_option == "Preestablecido":
@@ -55,7 +53,7 @@ if date_option == "Preestablecido":
             "30daysAgo": "Últimos 30 días",
             "90daysAgo": "Últimos 90 días"
         }[x],
-        key="preset_range_okdiario"
+        key="preset_range_clarin"
     )
     start_date_param = date_range
     end_date_param = "today"
@@ -65,13 +63,13 @@ else:
         start_date_custom = st.date_input(
             "Fecha inicio:",
             value=datetime.now() - timedelta(days=7),
-            key="start_date_okdiario"
+            key="start_date_clarin"
         )
     with col2:
         end_date_custom = st.date_input(
             "Fecha fin:",
             value=datetime.now(),
-            key="end_date_okdiario"
+            key="end_date_clarin"
         )
     
     # Convertir fechas a formato GA4
@@ -89,7 +87,7 @@ if st.sidebar.button("🔄 Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Usar archivo de credenciales correcto para OK Diario
+# Usar archivo de credenciales de medios (funciona para todas las propiedades)
 credentials_file = "credentials_analytics_acceso_medios.json"
 
 # Cargar datos
@@ -97,7 +95,7 @@ with st.spinner('Cargando datos...'):
     # Cargar datos del Google Sheet
     sheets_df = load_google_sheet_data()
     
-    # Filtrar solo URLs de OK Diario
+    # Filtrar solo URLs de Clarín
     if sheets_df is not None:
         sheets_filtered = filter_media_urls(sheets_df, media_config['domain'])
     else:
@@ -129,7 +127,7 @@ else:
             "👤 Filtrar por Autor:",
             options=authors,
             default=None,
-            key="author_filter_okdiario"
+            key="author_filter_clarin"
         )
         
         if author_filter:
@@ -149,7 +147,7 @@ else:
                     "🌐 Filtrar por Fuente:",
                     options=sources,
                     default=None,
-                    key="source_filter_okdiario",
+                    key="source_filter_clarin",
                     help="Fuente del tráfico (Google, Facebook, etc.)"
                 )
         
@@ -161,11 +159,9 @@ else:
                     "📡 Filtrar por Medio:",
                     options=mediums,
                     default=None,
-                    key="medium_filter_okdiario",
+                    key="medium_filter_clarin",
                     help="Medio del tráfico (organic, cpc, referral, etc.)"
                 )
-    
-
     
     # Métricas de datos cargados
     st.sidebar.metric("URLs en Sheet", len(sheets_filtered) if not sheets_filtered.empty else 0)
@@ -178,11 +174,6 @@ else:
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
         # Aplicar filtros de fuente y medio a GA4 antes del merge
         ga4_filtered = ga4_df.copy()
-        
-        # Agregar columna url_normalized a ga4_filtered ANTES de aplicar filtros
-        ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
-            lambda x: normalize_url(f"{media_config['domain']}{x}")
-        )
         
         if source_filter:
             ga4_filtered = ga4_filtered[ga4_filtered['sessionSource'].isin(source_filter)]
@@ -226,164 +217,10 @@ else:
         
         st.markdown("---")
         
-        # Obtener datos de GA4 para KPI (solo URLs del Sheet del mes actual)
-        from datetime import datetime
-        current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
-        current_month_today = datetime.now().strftime('%Y-%m-%d')
-        
-        ga4_monthly_df = get_ga4_data(
-            media_config['property_id'],
-            credentials_file,
-            start_date=current_month_start,
-            end_date=current_month_today
-        )
-        
-        # Calcular Page Views solo de URLs que están en el Sheet
-        total_monthly_pageviews = 0
-        if ga4_monthly_df is not None and not ga4_monthly_df.empty and not sheets_filtered.empty:
-            # Mergear GA4 mensual con URLs del Sheet para obtener solo artículos registrados
-            merged_monthly = merge_sheets_with_ga4(sheets_filtered, ga4_monthly_df, media_config['domain'])
-            if not merged_monthly.empty and 'screenPageViews' in merged_monthly.columns:
-                total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
-        
         # Tabs para diferentes vistas
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Datos", "📊 Análisis de Tráfico", "🔝 Top Páginas", "📈 Tendencias", "👤 Performance por Autor"])
         
         with tab1:
-            st.subheader("📊 KPI Mensual - OK Diario")
-            
-            # Descripción del KPI
-            st.markdown("""
-            ### 🎯 Objetivo del Mes
-            **Meta:** 3,000,000 de Page Views
-            
-            Este KPI mide el progreso hacia nuestro objetivo mensual de tráfico en artículos de OK Diario. 
-            Se consideran únicamente las URLs registradas en el Google Sheet, proporcionando una vista específica del rendimiento editorial.
-            """)
-            
-            # Configuración del KPI
-            monthly_goal = 3000000  # 3 millones de Page Views
-            current_progress = total_monthly_pageviews
-            progress_percentage = (current_progress / monthly_goal) * 100 if monthly_goal > 0 else 0
-            
-            # Métricas principales del KPI
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric(
-                    "🎯 Objetivo Mensual", 
-                    f"{monthly_goal:,}",
-                    help="Meta de Page Views para este mes"
-                )
-            
-            with col2:
-                st.metric(
-                    "📈 Progreso Actual", 
-                    f"{current_progress:,}",
-                    delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
-                    help="Page Views acumulados en lo que va del mes (solo artículos del Sheet)"
-                )
-            
-            with col3:
-                st.metric(
-                    "📊 % Completado", 
-                    f"{progress_percentage:.1f}%",
-                    help="Porcentaje del objetivo alcanzado"
-                )
-            
-            # Gráfico de progreso
-            st.markdown("---")
-            
-            # Crear gráfico de gauge/progreso
-            import plotly.graph_objects as go
-            
-            fig = go.Figure(go.Indicator(
-                mode = "gauge+number+delta",
-                value = current_progress,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Progreso hacia Objetivo Mensual (Artículos del Sheet)"},
-                delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
-                gauge = {
-                    'axis': {'range': [None, monthly_goal * 1.2]},
-                    'bar': {'color': media_config['color']},
-                    'steps': [
-                        {'range': [0, monthly_goal * 0.5], 'color': "lightgray"},
-                        {'range': [monthly_goal * 0.5, monthly_goal * 0.8], 'color': "yellow"},
-                        {'range': [monthly_goal * 0.8, monthly_goal], 'color': "lightgreen"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': monthly_goal
-                    }
-                }
-            ))
-            
-            fig.update_layout(
-                height=400,
-                font={'color': "darkblue", 'family': "Arial"}
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Información adicional
-            current_date = datetime.now()
-            days_in_month = current_date.day
-            
-            # Calcular días totales del mes actual
-            if current_date.month == 12:
-                next_month = current_date.replace(year=current_date.year + 1, month=1, day=1)
-            else:
-                next_month = current_date.replace(month=current_date.month + 1, day=1)
-            
-            days_total_month = (next_month - timedelta(days=1)).day
-            daily_average = current_progress / days_in_month if days_in_month > 0 else 0
-            projected_monthly = daily_average * days_total_month
-            
-            st.markdown("### 📈 Análisis de Tendencia")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric(
-                    "📅 Días Transcurridos", 
-                    f"{days_in_month}/{days_total_month}",
-                    help="Días transcurridos del mes actual"
-                )
-            
-            with col2:
-                st.metric(
-                    "📊 Promedio Diario", 
-                    f"{daily_average:,.0f}",
-                    help="Page Views promedio por día en lo que va del mes"
-                )
-            
-            with col3:
-                projection_delta = projected_monthly - monthly_goal
-                st.metric(
-                    "🔮 Proyección Mensual", 
-                    f"{projected_monthly:,.0f}",
-                    delta=f"{projection_delta:,.0f}",
-                    delta_color="normal" if projection_delta >= 0 else "inverse",
-                    help="Estimación de Page Views al final del mes según tendencia actual"
-                )
-            
-            # Disclaimer sobre el cálculo de proyección
-            st.markdown("---")
-            st.info(f"""
-            **📋 Metodología de Proyección:**
-            
-            • **Promedio Diario**: {daily_average:,.0f} Page Views (total acumulado ÷ {days_in_month} días transcurridos)
-            
-            • **Fórmula**: Promedio Diario × {days_total_month} días del mes = {projected_monthly:,.0f} Page Views proyectados
-            
-            • **Consideraciones**: Esta proyección asume que el ritmo de publicación y engagement se mantiene constante. 
-            Los fines de semana, feriados, eventos especiales o cambios en la estrategia editorial pueden afectar el resultado final.
-            
-            • **Solo URLs del Sheet**: Se consideran únicamente los artículos registrados en el Google Sheet, no todo el tráfico del sitio.
-            """)
-        
-        with tab2:
             st.subheader("📋 Datos Combinados (Sheet + GA4)")
             
             # Búsqueda
@@ -421,11 +258,11 @@ else:
             st.download_button(
                 label="📥 Descargar datos",
                 data=csv,
-                file_name=f"okdiario_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                file_name=f"clarin_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv"
             )
         
-        with tab3:
+        with tab2:
             st.subheader("📊 Análisis de Tráfico")
             
             # Top 10 páginas por sesiones
@@ -479,7 +316,7 @@ else:
                 else:
                     st.info("No hay datos suficientes para mostrar la correlación")
         
-        with tab4:
+        with tab3:
             st.subheader("🔝 Top Páginas")
             
             # Selector de métrica
@@ -514,7 +351,7 @@ else:
                 # Tabla de datos
                 st.dataframe(top_df, use_container_width=True)
         
-        with tab5:
+        with tab4:
             st.subheader("📈 Tendencias")
             
             # Usar ga4_filtered (ya filtrado por fuente/medio) para mostrar solo URLs que están en el Sheet
@@ -620,7 +457,7 @@ else:
             else:
                 st.info("No hay datos de tendencias disponibles")
         
-        with tab6:
+        with tab5:
             st.subheader("👤 Performance por Autor")
             
             if 'autor' in merged_df.columns and not merged_df.empty:
@@ -707,7 +544,7 @@ else:
                 sort_by = st.selectbox(
                     "Ordenar por:",
                     ['Page Views', 'Notas Redactadas', 'Sesiones', 'Usuarios'],
-                    key="sort_authors_okdiario"
+                    key="sort_authors_clarin"
                 )
                 
                 # Ordenar según selección
@@ -726,7 +563,7 @@ else:
                 st.download_button(
                     label="📥 Descargar Performance por Autor",
                     data=csv_performance,
-                    file_name=f"okdiario_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=f"clarin_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
             else:
@@ -734,7 +571,7 @@ else:
     
     elif ga4_df is not None and not ga4_df.empty:
         # Solo datos de GA4
-        st.warning(f"⚠️ No se encontraron URLs de {media_config['name']} en el Google Sheet. Mostrando solo datos de GA4.")
+        st.warning("⚠️ No se encontraron URLs de Clarín en el Google Sheet. Mostrando solo datos de GA4.")
         
         # Métricas de GA4
         col1, col2, col3, col4 = st.columns(4)
