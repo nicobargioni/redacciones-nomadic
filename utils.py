@@ -586,7 +586,7 @@ def create_media_config():
                 },
                 'natgeo': {
                     'name': 'National Geographic',
-                    'domain': 'nationalgeographic.com.es',
+                    'domain': 'nationalgeographic',  # Buscar todas las variantes
                     'property_id': ga_config.get('natgeo_property_id', '000000000'),
                     'icon': '🌍',
                     'color': '#ffcc02'
@@ -655,7 +655,7 @@ def create_media_config():
         },
         'natgeo': {
             'name': 'National Geographic',
-            'domain': 'nationalgeographic.com.es',
+            'domain': 'nationalgeographic',  # Buscar todas las variantes
             'property_id': '000000000',
             'icon': '🌍',
             'color': '#ffcc02'
