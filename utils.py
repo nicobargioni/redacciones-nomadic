@@ -397,27 +397,26 @@ def load_google_sheet_data():
         from googleapiclient.discovery import build
         
         # Obtener credentials desde Streamlit secrets
-        if hasattr(st, 'secrets') and 'google_service_account' in st.secrets:
-            service_account_info = dict(st.secrets['google_service_account'])
+        if hasattr(st, 'secrets') and 'google_service_account_base64' in st.secrets:
+            import base64
+            import json
             
-            # Fix private key format - clean and format properly
-            if 'private_key' in service_account_info:
-                private_key = service_account_info['private_key']
+            # Decodificar el JSON desde base64
+            try:
+                # Obtener el string base64
+                credentials_base64 = st.secrets['google_service_account_base64']
                 
-                # Replace literal \n with actual newlines
-                private_key = private_key.replace('\\n', '\n')
+                # Decodificar base64 a bytes
+                credentials_bytes = base64.b64decode(credentials_base64)
                 
-                # Fix the space after BEGIN PRIVATE KEY that should be a newline
-                private_key = private_key.replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
-                private_key = private_key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+                # Convertir bytes a string y luego a dict
+                service_account_info = json.loads(credentials_bytes.decode('utf-8'))
                 
-                # Clean any extra whitespace or problematic chars
-                private_key = private_key.strip()
-                # Ensure proper formatting
-                if not private_key.endswith('\n'):
-                    private_key += '\n'
-                    
-                service_account_info['private_key'] = private_key
+                logger.info("Service account credentials decodificadas desde base64 exitosamente")
+                
+            except Exception as e:
+                st.error(f"Error decodificando credenciales base64: {str(e)}")
+                raise
             
             try:
                 credentials = service_account.Credentials.from_service_account_info(
