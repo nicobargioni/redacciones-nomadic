@@ -8,25 +8,23 @@ import streamlit as st
 from datetime import datetime, timedelta
 import logging
 import json
-from cryptography.fernet import Fernet
+import base64
 import os
 
 logger = logging.getLogger(__name__)
 
-def decrypt_credentials_file(encrypted_file_path, encryption_key):
+def decode_base64_credentials_file(base64_file_path):
     """
-    Desencripta un archivo de credenciales encriptado
+    Decodifica un archivo de credenciales codificado en Base64
     """
     try:
-        fernet = Fernet(encryption_key.encode())
+        with open(base64_file_path, 'r') as file:
+            base64_data = file.read().strip()
         
-        with open(encrypted_file_path, 'rb') as file:
-            encrypted_data = file.read()
-        
-        decrypted_data = fernet.decrypt(encrypted_data)
-        return json.loads(decrypted_data.decode())
+        decoded_data = base64.b64decode(base64_data)
+        return json.loads(decoded_data.decode())
     except Exception as e:
-        logger.error(f"Error desencriptando credenciales: {str(e)}")
+        logger.error(f"Error decodificando credenciales Base64: {str(e)}")
         return None
 
 def create_ga4_client(creds_data):
@@ -108,23 +106,21 @@ def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     try:
         logger.info(f"Creando cliente GA4 OAuth con account_type: {account_type}")
         
-        # Caso especial para credenciales encriptadas de Damián
+        # Caso especial para credenciales codificadas en Base64 de Damián
         if account_type == "damian":
-            # Buscar credenciales encriptadas y clave de desencriptación
-            if hasattr(st, 'secrets'):
-                if 'damian_encryption_key' in st.secrets and os.path.exists("damian_credentials_analytics_2025.encrypted"):
-                    encryption_key = st.secrets['damian_encryption_key']
-                    creds_data = decrypt_credentials_file("damian_credentials_analytics_2025.encrypted", encryption_key)
-                    if creds_data:
-                        client = create_ga4_client(creds_data)
-                        logger.info("Cliente GA4 creado con credenciales encriptadas de Damián")
-                        return client
-                    else:
-                        logger.error("No se pudieron desencriptar las credenciales de Damián")
-                        return None
+            # Buscar credenciales codificadas en Base64
+            if os.path.exists("damian_credentials_analytics_2025.b64"):
+                creds_data = decode_base64_credentials_file("damian_credentials_analytics_2025.b64")
+                if creds_data:
+                    client = create_ga4_client(creds_data)
+                    logger.info("Cliente GA4 creado con credenciales Base64 de Damián")
+                    return client
                 else:
-                    logger.error("No se encontró la clave de encriptación o el archivo encriptado de Damián")
+                    logger.error("No se pudieron decodificar las credenciales Base64 de Damián")
                     return None
+            else:
+                logger.error("No se encontró el archivo Base64 de credenciales de Damián")
+                return None
         else:
             # Obtener credenciales desde Streamlit secrets (caso normal)
             secret_key = f'google_oauth_{account_type}'
