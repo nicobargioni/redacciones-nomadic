@@ -9,22 +9,25 @@ from datetime import datetime, timedelta
 import logging
 import json
 import base64
+import pickle
 import os
 
 logger = logging.getLogger(__name__)
 
-def decode_base64_credentials_file(base64_file_path):
+def decode_pickle_base64_credentials(encoded_string):
     """
-    Decodifica un archivo de credenciales codificado en Base64
+    Decodifica credenciales desde string pickle+base64
     """
     try:
-        with open(base64_file_path, 'r') as file:
-            base64_data = file.read().strip()
+        # Decodificar base64 → bytes
+        decoded_bytes = base64.b64decode(encoded_string.encode('utf-8'))
         
-        decoded_data = base64.b64decode(base64_data)
-        return json.loads(decoded_data.decode())
+        # Despickle → dict
+        credentials_data = pickle.loads(decoded_bytes)
+        
+        return credentials_data
     except Exception as e:
-        logger.error(f"Error decodificando credenciales Base64: {str(e)}")
+        logger.error(f"Error decodificando credenciales pickle+base64: {str(e)}")
         return None
 
 def create_ga4_client(creds_data):
@@ -106,20 +109,21 @@ def get_ga4_client_oauth(credentials_file, account_type="acceso"):
     try:
         logger.info(f"Creando cliente GA4 OAuth con account_type: {account_type}")
         
-        # Caso especial para credenciales codificadas en Base64 de Damián
+        # Caso especial para credenciales pickle+base64 de Damián
         if account_type == "damian":
-            # Buscar credenciales codificadas en Base64
-            if os.path.exists("damian_credentials_analytics_2025.b64"):
-                creds_data = decode_base64_credentials_file("damian_credentials_analytics_2025.b64")
+            # Buscar credenciales en Streamlit secrets
+            if hasattr(st, 'secrets') and 'damian_credentials_encoded' in st.secrets:
+                encoded_string = st.secrets['damian_credentials_encoded']
+                creds_data = decode_pickle_base64_credentials(encoded_string)
                 if creds_data:
                     client = create_ga4_client(creds_data)
-                    logger.info("Cliente GA4 creado con credenciales Base64 de Damián")
+                    logger.info("Cliente GA4 creado con credenciales pickle+base64 de Damián")
                     return client
                 else:
-                    logger.error("No se pudieron decodificar las credenciales Base64 de Damián")
+                    logger.error("No se pudieron decodificar las credenciales pickle+base64 de Damián")
                     return None
             else:
-                logger.error("No se encontró el archivo Base64 de credenciales de Damián")
+                logger.error("No se encontró damian_credentials_encoded en Streamlit secrets")
                 return None
         else:
             # Obtener credenciales desde Streamlit secrets (caso normal)
