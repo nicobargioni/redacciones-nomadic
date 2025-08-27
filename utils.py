@@ -419,10 +419,15 @@ def load_google_sheet_data():
                     
                 service_account_info['private_key'] = private_key
             
-            credentials = service_account.Credentials.from_service_account_info(
-                service_account_info,
-                scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
-            )
+            try:
+                credentials = service_account.Credentials.from_service_account_info(
+                    service_account_info,
+                    scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+                )
+            except Exception as e:
+                st.error(f"ERROR creando credenciales: {str(e)}")
+                st.error(f"Tipo de error: {type(e).__name__}")
+                raise
             
             # Obtener spreadsheet_id desde secrets
             spreadsheet_id = st.secrets['google_analytics'].get('spreadsheet_id', '1n-jYrNH_S_uLzhCJhTzLfEJn_nnrsU2H5jkxNjtwO6Q')
