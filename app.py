@@ -44,8 +44,8 @@ sancor_redaccion = "sancor_red123"
 st.info("📝 Al pasar a producción, estas credenciales serán reemplazadas por las que defina cada cliente.")
 
 st.markdown("### ℹ️ Ejemplo de uso:")
-st.markdown("Para ingresar al dashboard de **OKDiario** como **cliente**, la URL sería: `https://redacciones-nomadic.streamlit.app/okdiario-431468943` y las credenciales serían: usuario: okdiario y contraseña okdiario123")
-st.markdown("Para ingresar al dashboard de **OKDiario** como **redacción**, la URL sería: `https://redacciones-nomadic.streamlit.app/redaccion-okdiario-20566` y las credenciales serían: usuario: okdiario y contraseña okdiario_red123")
+st.markdown("Para ingresar al dashboard de **OKDiario** como **cliente**, la URL sería: `https://redacciones-nomadic.streamlit.app/okdiario-431468943` y las credenciales serían: usuario: okdiario_cliente y contraseña okdiario123")
+st.markdown("Para ingresar al dashboard de **OKDiario** como **redacción**, la URL sería: `https://redacciones-nomadic.streamlit.app/redaccion-okdiario-20566` y las credenciales serían: usuario: okdiario_redaccion y contraseña okdiario_red123")
 st.markdown("---")
 st.markdown("*Cada cuenta tiene 2 paneles: REDACCIÓN Y CLIENTE.*")
 st.markdown("*La idea es que ambos grupos de usuarios -redacción y cliente- vean la data que le es de interés*")
