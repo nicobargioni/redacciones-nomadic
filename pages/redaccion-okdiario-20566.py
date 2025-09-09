@@ -13,9 +13,9 @@ from utils import (
     filter_media_urls,
     merge_sheets_with_ga4,
     create_media_config,
-    normalize_url
-,
-    check_login
+    normalize_url,
+    check_login,
+    get_ga4_pageviews_data
 )
 
 # Configuración de la página
@@ -247,7 +247,7 @@ else:
                 total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor", "📈 Métricas de Redacción"])
         
         with tab1:
             st.subheader("📊 KPI Mensual - OK Diario")
@@ -731,6 +731,148 @@ else:
                 )
             else:
                 st.info("No hay datos de autores disponibles para mostrar performance")
+        
+        with tab7:
+            st.subheader("📈 Métricas de Redacción")
+            
+            # Selector de período
+            col1, col2 = st.columns([3, 9])
+            with col1:
+                period_filter = st.radio(
+                    "Período:",
+                    ["month", "week", "total"],
+                    format_func=lambda x: {
+                        "month": "📅 Mes",
+                        "week": "📅 Semana", 
+                        "total": "📅 Total (90 días)"
+                    }[x],
+                    key="period_filter_metrics"
+                )
+            
+            # Obtener datos de pageviews
+            pageviews_data = get_ga4_pageviews_data(
+                media_config['property_id'],
+                credentials_file,
+                period=period_filter
+            )
+            
+            if pageviews_data:
+                # Métricas principales
+                col1, col2, col3 = st.columns([2, 1, 2])
+                
+                with col1:
+                    # Métrica principal: Pageviews acumuladas
+                    st.metric(
+                        "📊 PAGEVIEWS TOTALES",
+                        f"{pageviews_data['total_pageviews']:,.0f}",
+                        help=f"Total de pageviews en el período seleccionado"
+                    )
+                
+                with col2:
+                    # Métrica secundaria: Cantidad de notas redactadas
+                    if sheets_filtered is not None:
+                        total_notes = len(sheets_filtered)
+                        st.metric(
+                            "📝 Notas Redactadas",
+                            total_notes,
+                            help="Cantidad total de notas en el Google Sheet",
+                            label_visibility="visible"
+                        )
+                    else:
+                        st.metric("📝 Notas Redactadas", "0")
+                
+                with col3:
+                    # Espacio para balance visual
+                    st.empty()
+                
+                st.markdown("---")
+                
+                # Comparativas clave
+                st.subheader("📊 Comparativas Clave")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Promedio de pageviews por nota del sheets
+                    if sheets_filtered is not None and not sheets_filtered.empty and 'screenPageViews' in merged_df.columns:
+                        avg_pv_sheets = merged_df['screenPageViews'].sum() / len(merged_df) if len(merged_df) > 0 else 0
+                        st.info(f"📰 **Promedio PV/Nota (Sheets):** {avg_pv_sheets:,.0f}")
+                        st.caption("Promedio de pageviews por nota del Google Sheet")
+                    else:
+                        st.info("📰 **Promedio PV/Nota (Sheets):** No disponible")
+                
+                with col2:
+                    # Promedio de pageviews por página del sitio (excluyendo home)
+                    avg_pv_site = pageviews_data['avg_pageviews_per_page']
+                    st.info(f"🌐 **Promedio PV/Página (Sitio):** {avg_pv_site:,.0f}")
+                    st.caption(f"Promedio de pageviews por página del sitio completo (excluyendo home)")
+                
+                # Métricas adicionales
+                st.markdown("---")
+                st.subheader("📈 Métricas Adicionales")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric(
+                        "🏠 Pageviews sin Home",
+                        f"{pageviews_data['non_home_pageviews']:,.0f}",
+                        help="Total de pageviews excluyendo la página principal"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "📄 Páginas Únicas",
+                        f"{pageviews_data['non_home_pages']:,.0f}",
+                        help="Cantidad de páginas únicas (sin home)"
+                    )
+                
+                with col3:
+                    # Calcular diferencia entre promedios si es posible
+                    if sheets_filtered is not None and not sheets_filtered.empty and 'screenPageViews' in merged_df.columns:
+                        avg_pv_sheets = merged_df['screenPageViews'].sum() / len(merged_df) if len(merged_df) > 0 else 0
+                        diff_percentage = ((avg_pv_sheets - avg_pv_site) / avg_pv_site * 100) if avg_pv_site > 0 else 0
+                        
+                        if diff_percentage > 0:
+                            delta_color = "normal"
+                            delta_text = f"+{diff_percentage:.1f}%"
+                        else:
+                            delta_color = "inverse"
+                            delta_text = f"{diff_percentage:.1f}%"
+                        
+                        st.metric(
+                            "📊 Diferencia Sheets vs Sitio",
+                            f"{delta_text}",
+                            help="Diferencia porcentual entre el promedio de PV de las notas del Sheet vs el promedio del sitio"
+                        )
+                    else:
+                        st.metric("📊 Diferencia", "N/A")
+                
+                # Gráfico comparativo
+                if sheets_filtered is not None and not sheets_filtered.empty and 'screenPageViews' in merged_df.columns:
+                    avg_pv_sheets = merged_df['screenPageViews'].sum() / len(merged_df) if len(merged_df) > 0 else 0
+                    
+                    comparison_data = pd.DataFrame({
+                        'Fuente': ['Notas del Sheet', 'Sitio Completo (sin home)'],
+                        'Promedio Pageviews': [avg_pv_sheets, avg_pv_site]
+                    })
+                    
+                    fig_comparison = px.bar(
+                        comparison_data,
+                        x='Fuente',
+                        y='Promedio Pageviews',
+                        title='Comparación de Promedios de Pageviews',
+                        color='Fuente',
+                        color_discrete_map={
+                            'Notas del Sheet': media_config['color'],
+                            'Sitio Completo (sin home)': '#808080'
+                        }
+                    )
+                    fig_comparison.update_layout(showlegend=False)
+                    st.plotly_chart(fig_comparison, use_container_width=True)
+                
+            else:
+                st.error("❌ No se pudieron obtener los datos de pageviews de GA4")
     
     elif ga4_df is not None and not ga4_df.empty:
         # Solo datos de GA4

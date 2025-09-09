@@ -695,6 +695,110 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
     logger.info(f"Merge completado: {len(merged_df)} filas con datos combinados")
     return merged_df
 
+@st.cache_data(ttl=300)
+def get_ga4_pageviews_data(property_id, credentials_file, period="month"):
+    """
+    Obtiene datos de pageviews para el período especificado
+    period: "month" (mes actual), "week" (última semana), "total" (últimos 90 días)
+    """
+    try:
+        # Determinar fechas según el período
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        
+        if period == "month":
+            # Mes actual
+            start_date = today.replace(day=1).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        elif period == "week":
+            # Últimos 7 días
+            start_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        else:  # total
+            # Últimos 90 días
+            start_date = (today - timedelta(days=90)).strftime("%Y-%m-%d")
+            end_date = today.strftime("%Y-%m-%d")
+        
+        # Determinar qué tipo de cuenta usar
+        if property_id == "255037852":  # OK Diario
+            account_type = "acceso_medios"
+        elif credentials_file == "damian_credentials_analytics_2025.json":  # Mundo Deportivo
+            account_type = "damian"
+        else:
+            account_type = "acceso"
+        
+        # Usar Streamlit secrets
+        if hasattr(st, 'secrets'):
+            secret_key = f'google_oauth_{account_type}'
+            if secret_key in st.secrets:
+                credentials_data = st.secrets[secret_key]
+                credentials_dict = dict(credentials_data)
+            else:
+                return None
+        else:
+            return None
+        
+        # Crear cliente
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        
+        creds = Credentials(
+            token=credentials_dict.get('token'),
+            refresh_token=credentials_dict.get('refresh_token'),
+            client_id=credentials_dict.get('client_id'),
+            client_secret=credentials_dict.get('client_secret'),
+            token_uri="https://oauth2.googleapis.com/token"
+        )
+        
+        client = build('analyticsdata', 'v1beta', credentials=creds)
+        
+        # Request para pageviews totales y por página (excluyendo home)
+        request_body = {
+            'dimensions': [
+                {'name': 'pagePath'}
+            ],
+            'metrics': [
+                {'name': 'screenPageViews'}
+            ],
+            'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
+            'limit': 10000
+        }
+        
+        response = client.properties().runReport(
+            property=f"properties/{property_id}", 
+            body=request_body
+        ).execute()
+        
+        # Procesar respuesta
+        total_pageviews = 0
+        non_home_pageviews = 0
+        non_home_pages = 0
+        
+        if 'rows' in response:
+            for row in response['rows']:
+                page_path = row['dimensionValues'][0]['value']
+                pageviews = int(row['metricValues'][0]['value'])
+                
+                total_pageviews += pageviews
+                
+                # Excluir home (/, /index, etc.)
+                if page_path not in ['/', '/index', '/index.html', '/home']:
+                    non_home_pageviews += pageviews
+                    non_home_pages += 1
+        
+        avg_pageviews_per_page = non_home_pageviews / non_home_pages if non_home_pages > 0 else 0
+        
+        return {
+            'total_pageviews': total_pageviews,
+            'non_home_pageviews': non_home_pageviews,
+            'non_home_pages': non_home_pages,
+            'avg_pageviews_per_page': avg_pageviews_per_page
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo pageviews de GA4: {e}")
+        return None
+
 def create_media_config():
     """
     Retorna la configuración de cada medio usando Streamlit secrets o valores por defecto
