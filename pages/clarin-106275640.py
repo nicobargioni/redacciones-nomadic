@@ -15,7 +15,8 @@ from utils import (
     create_media_config,
     check_login,
     get_ga4_growth_data,
-    get_ga4_growth_data_custom
+    get_ga4_growth_data_custom,
+    get_monthly_pageviews_by_sheets
 )
 
 # Configuración de la página
@@ -198,24 +199,43 @@ else:
             st.warning("⚠️ Los filtros de fuente/medio no devolvieron datos de GA4")
             merged_df = sheets_filtered  # Solo datos del sheet
         
-        # Métricas principales
+        # Métricas principales - Pageviews del mes actual por URLs del Sheet
         col1, col2, col3, col4 = st.columns(4)
         
+        # Obtener URLs del Sheet filtradas para las métricas
+        sheets_urls_for_metrics = None
+        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
+            sheets_urls_for_metrics = sheets_filtered['url_normalized'].dropna().unique().tolist()
+        
+        # Obtener pageviews del mes actual
+        monthly_pageviews = 0
+        if sheets_urls_for_metrics:
+            with st.spinner("Cargando métricas del mes..."):
+                monthly_pageviews = get_monthly_pageviews_by_sheets(
+                    media_config['property_id'],
+                    credentials_file,
+                    sheets_urls_for_metrics,
+                    media_config['domain']
+                )
+        
         with col1:
-            total_sessions = merged_df['sessions'].sum() if 'sessions' in merged_df.columns else 0
-            st.metric("📊 Sesiones Totales", f"{total_sessions:,.0f}")
+            st.metric("📊 Pageviews del Mes", f"{monthly_pageviews:,.0f}")
         
         with col2:
-            total_users = merged_df['totalUsers'].sum() if 'totalUsers' in merged_df.columns else 0
-            st.metric("👥 Usuarios Totales", f"{total_users:,.0f}")
+            articles_count = len(sheets_filtered) if not sheets_filtered.empty else 0
+            st.metric("📰 Artículos en Sheet", f"{articles_count:,.0f}")
         
         with col3:
-            total_pageviews = merged_df['screenPageViews'].sum() if 'screenPageViews' in merged_df.columns else 0
-            st.metric("👁️ Vistas de Página", f"{total_pageviews:,.0f}")
+            avg_pageviews = monthly_pageviews / articles_count if articles_count > 0 else 0
+            st.metric("📈 Promedio por Artículo", f"{avg_pageviews:,.0f}")
         
         with col4:
-            avg_bounce = merged_df['bounceRate'].mean() if 'bounceRate' in merged_df.columns else 0
-            st.metric("📉 Tasa de Rebote Promedio", f"{avg_bounce:.1f}%")
+            # Calcular días transcurridos del mes
+            from datetime import datetime
+            today = datetime.now()
+            days_in_month = today.day
+            avg_daily = monthly_pageviews / days_in_month if days_in_month > 0 else 0
+            st.metric("📅 Promedio Diario", f"{avg_daily:,.0f}")
         
         st.markdown("---")
         

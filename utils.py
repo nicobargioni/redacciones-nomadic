@@ -726,6 +726,48 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
     return merged_df
 
 @st.cache_data(ttl=300)
+def get_monthly_pageviews_by_sheets(property_id, credentials_file, sheets_urls, domain):
+    """
+    Obtiene pageviews del mes actual solo para URLs que están en el Google Sheets
+    
+    Args:
+        property_id: ID de la propiedad GA4
+        credentials_file: Archivo de credenciales
+        sheets_urls: Lista de URLs normalizadas del Google Sheet
+        domain: Dominio del medio
+    
+    Returns:
+        int: Total de pageviews del mes para URLs del Sheet
+    """
+    try:
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        
+        # Mes actual
+        start_date = today.replace(day=1)
+        end_date = today
+        
+        # Obtener datos históricos del mes actual filtrados por Sheet
+        monthly_data = get_ga4_historical_data(
+            property_id,
+            credentials_file, 
+            start_date,
+            end_date,
+            "day",
+            sheets_urls,
+            domain
+        )
+        
+        if monthly_data is not None and not monthly_data.empty:
+            return int(monthly_data['pageviews'].sum())
+        else:
+            return 0
+            
+    except Exception as e:
+        logger.error(f"Error obteniendo pageviews mensuales: {e}")
+        return 0
+
+@st.cache_data(ttl=300)
 def get_ga4_pageviews_data(property_id, credentials_file, period="month"):
     """
     Obtiene datos de pageviews para el período especificado
