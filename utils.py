@@ -175,7 +175,7 @@ def create_ga4_client(creds_data):
 def normalize_url(url):
     """
     Normaliza una URL removiendo parámetros innecesarios, versiones AMP, 
-    y estandarizando el formato.
+    y estandarizando el formato específicamente para OKDiario.
     """
     if pd.isna(url) or not url:
         return ""
@@ -189,40 +189,36 @@ def normalize_url(url):
     # Remover www. si existe
     url_clean = re.sub(r'^www\.', '', url_clean)
     
+    # Remover específicamente el dominio okdiario.com
+    url_clean = re.sub(r'^okdiario\.com', '', url_clean)
+    
+    # Si no empieza con /, agregarlo (except para home que debe ser "/")
+    if url_clean and not url_clean.startswith('/'):
+        url_clean = '/' + url_clean
+    
+    # Remover fragmentos (#) antes de procesar paths
+    if '#' in url_clean:
+        url_clean = url_clean.split('#')[0]
+    
+    # Remover query parameters
+    if '?' in url_clean:
+        url_clean = url_clean.split('?')[0]
+    
     # Remover /amp o .amp del final
     url_clean = re.sub(r'/amp/?$', '', url_clean)
     url_clean = re.sub(r'\.amp/?$', '', url_clean)
     
-    # Remover trailing slash
-    url_clean = url_clean.rstrip('/')
+    # Colapsar dobles barras (//) en el path
+    url_clean = re.sub(r'/+', '/', url_clean)
     
-    try:
-        # Parse la URL para remover query parameters comunes de tracking
-        if '?' in url_clean:
-            base_url, query_string = url_clean.split('?', 1)
-            # Parse query parameters
-            parsed_qs = parse_qs(query_string)
-            
-            # Lista de parámetros a preservar (si necesitas algunos)
-            params_to_keep = []
-            
-            # Filtrar solo los parámetros que queremos mantener
-            filtered_params = {k: v for k, v in parsed_qs.items() 
-                             if k in params_to_keep}
-            
-            # Si hay parámetros filtrados, reconstruir la URL
-            if filtered_params:
-                new_qs = urlencode(filtered_params, doseq=True)
-                url_clean = f"{base_url}?{new_qs}"
-            else:
-                url_clean = base_url
-    except:
-        pass
+    # Remover trailing slash, EXCEPTO si la URL es solo "/"
+    if url_clean != '/':
+        url_clean = url_clean.rstrip('/')
     
-    # Remover fragmentos (#)
-    if '#' in url_clean:
-        url_clean = url_clean.split('#')[0]
-    
+    # Si quedó vacío, devolver "/"
+    if not url_clean:
+        url_clean = '/'
+        
     return url_clean
 
 
