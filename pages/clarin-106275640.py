@@ -215,12 +215,20 @@ else:
                     media_config['domain']
                 )
         
-        # Métrica principal
-        st.metric("📊 Pageviews del mes (solo URLs del Sheet)", f"{monthly_pageviews:,.0f}")
-        
-        # Métrica secundaria
+        # Métricas principales - Diseño más grande y prominente
         articles_count = len(sheets_filtered) if not sheets_filtered.empty else 0
-        st.markdown(f'<p style="color: gray; font-size: 14px;">📰 {articles_count:,} notas generadas</p>', unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div style="text-align: center; padding: 20px 0;">
+            <div style="margin-bottom: 30px;">
+                <h2 style="color: #1f77b4; font-size: 24px; margin-bottom: 5px;">📊 Pageviews del mes (solo URLs del Sheet)</h2>
+                <h1 style="color: #1f77b4; font-size: 48px; font-weight: bold; margin: 0;">{monthly_pageviews:,}</h1>
+            </div>
+            <div>
+                <h3 style="color: #666; font-size: 20px; margin: 0;">📰 {articles_count:,} notas generadas</h3>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
         st.markdown("---")
         
