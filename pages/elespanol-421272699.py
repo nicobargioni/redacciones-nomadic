@@ -572,6 +572,11 @@ else:
                     key="comparison_type_elespanol"
                 )
             
+            # Obtener URLs normalizadas del Sheet para filtrar
+            sheets_urls = None
+            if not sheets_filtered.empty and 'url_normalized' in merged_df.columns:
+                sheets_urls = merged_df['url_normalized'].dropna().unique().tolist()
+            
             # Si es personalizado, mostrar selectores de fecha
             if comparison_type == "custom":
                 st.markdown("**Período Actual:**")
@@ -611,14 +616,16 @@ else:
                     current_start,
                     current_end,
                     previous_start,
-                    previous_end
+                    previous_end,
+                    sheets_urls
                 )
             else:
                 # Obtener datos predefinidos
                 growth_data = get_ga4_growth_data(
                     media_config['property_id'],
                     credentials_file,
-                    comparison_type
+                    comparison_type,
+                    sheets_urls
                 )
             
             if growth_data:

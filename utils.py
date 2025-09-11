@@ -943,10 +943,11 @@ def create_media_config():
     }
 
 @st.cache_data(ttl=300)
-def get_ga4_growth_data(property_id, credentials_file, comparison_type="day"):
+def get_ga4_growth_data(property_id, credentials_file, comparison_type="day", sheets_urls=None):
     """
-    Obtiene datos de crecimiento comparando períodos t vs t-1
+    Obtiene datos de crecimiento comparando períodos t vs t-1, filtrando solo URLs del Sheet
     comparison_type: "day", "week", "month", "90days", "custom"
+    sheets_urls: Lista de URLs normalizadas del Google Sheet para filtrar
     """
     from datetime import datetime, timedelta
     
@@ -1036,7 +1037,24 @@ def get_ga4_growth_data(property_id, credentials_file, comparison_type="day"):
             total_sessions = 0
             total_users = 0
             
-            if 'rows' in response:
+            if 'rows' in response and sheets_urls:
+                # Si tenemos URLs del Sheet, filtrar solo esas
+                for row in response['rows']:
+                    page_path = row['dimensionValues'][0]['value']
+                    # Normalizar la URL de GA4 para comparar
+                    normalized_ga4_url = normalize_url(f"domain.com{page_path}")  # El dominio se ignorará en normalize_url
+                    
+                    # Solo incluir si la URL está en el Sheet
+                    if any(normalized_ga4_url == sheet_url for sheet_url in sheets_urls):
+                        pageviews = int(row['metricValues'][0]['value'])
+                        sessions = int(row['metricValues'][1]['value'])
+                        users = int(row['metricValues'][2]['value'])
+                        
+                        total_pageviews += pageviews
+                        total_sessions += sessions
+                        total_users += users
+            elif 'rows' in response and not sheets_urls:
+                # Si no hay URLs del Sheet, usar todos los datos (fallback)
                 for row in response['rows']:
                     pageviews = int(row['metricValues'][0]['value'])
                     sessions = int(row['metricValues'][1]['value'])
@@ -1086,9 +1104,10 @@ def get_ga4_growth_data(property_id, credentials_file, comparison_type="day"):
         return None
 
 @st.cache_data(ttl=300)
-def get_ga4_growth_data_custom(property_id, credentials_file, current_start, current_end, previous_start, previous_end):
+def get_ga4_growth_data_custom(property_id, credentials_file, current_start, current_end, previous_start, previous_end, sheets_urls=None):
     """
-    Obtiene datos de crecimiento para períodos personalizados
+    Obtiene datos de crecimiento para períodos personalizados, filtrando solo URLs del Sheet
+    sheets_urls: Lista de URLs normalizadas del Google Sheet para filtrar
     """
     try:
         # Determinar qué tipo de cuenta usar según la propiedad
@@ -1138,7 +1157,24 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
             total_sessions = 0
             total_users = 0
             
-            if 'rows' in response:
+            if 'rows' in response and sheets_urls:
+                # Si tenemos URLs del Sheet, filtrar solo esas
+                for row in response['rows']:
+                    page_path = row['dimensionValues'][0]['value']
+                    # Normalizar la URL de GA4 para comparar
+                    normalized_ga4_url = normalize_url(f"domain.com{page_path}")  # El dominio se ignorará en normalize_url
+                    
+                    # Solo incluir si la URL está en el Sheet
+                    if any(normalized_ga4_url == sheet_url for sheet_url in sheets_urls):
+                        pageviews = int(row['metricValues'][0]['value'])
+                        sessions = int(row['metricValues'][1]['value'])
+                        users = int(row['metricValues'][2]['value'])
+                        
+                        total_pageviews += pageviews
+                        total_sessions += sessions
+                        total_users += users
+            elif 'rows' in response and not sheets_urls:
+                # Si no hay URLs del Sheet, usar todos los datos (fallback)
                 for row in response['rows']:
                     pageviews = int(row['metricValues'][0]['value'])
                     sessions = int(row['metricValues'][1]['value'])
