@@ -930,18 +930,36 @@ else:
             st.subheader("📈 Métricas de Redacción")
             
             # Selector de período
-            col1, col2 = st.columns([3, 9])
-            with col1:
-                period_filter = st.radio(
-                    "Período:",
-                    ["month", "week", "total"],
-                    format_func=lambda x: {
-                        "month": "📅 Mes",
-                        "week": "📅 Semana", 
-                        "total": "📅 Total (90 días)"
-                    }[x],
-                    key="period_filter_metrics"
-                )
+            period_filter = st.selectbox(
+                "Período de análisis:",
+                ["day", "week", "month", "90days", "custom"],
+                format_func=lambda x: {
+                    "day": "📅 Día",
+                    "week": "📅 Semana",
+                    "month": "📅 Mes", 
+                    "90days": "📅 90 días",
+                    "custom": "📅 Personalizado"
+                }[x],
+                key="period_filter_metrics_vidae"
+            )
+
+            # Si es personalizado, mostrar selectores de fecha
+            if period_filter == "custom":
+                col1, col2 = st.columns(2)
+                with col1:
+                    custom_start_date = st.date_input(
+                        "Fecha inicio:",
+                        value=datetime.now() - timedelta(days=30),
+                        key="custom_start_metrics_vidae"
+                    )
+                with col2:
+                    custom_end_date = st.date_input(
+                        "Fecha fin:",
+                        value=datetime.now(),
+                        key="custom_end_metrics_vidae"  
+                    )
+                # For custom period, we need to pass the dates to the pageviews function
+                # This might require updating the get_ga4_pageviews_data function to handle custom dates
             
             # Obtener datos de pageviews
             pageviews_data = get_ga4_pageviews_data(
