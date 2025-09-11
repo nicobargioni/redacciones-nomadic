@@ -17,6 +17,7 @@ from utils import (
     normalize_url
 ,
     check_login
+    get_monthly_pageviews_by_sheets
 )
 
 # Configuración de la página
@@ -262,25 +263,36 @@ else:
             st.warning("⚠️ Los filtros de fuente/medio no devolvieron datos de GA4")
             merged_df = sheets_filtered  # Solo datos del sheet
         
-        # Métricas principales
-        col1, col2, col3, col4 = st.columns(4)
+        # Obtener URLs del Sheet filtradas para las métricas
+        sheets_urls_for_metrics = None
+        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
+            sheets_urls_for_metrics = sheets_filtered['url_normalized'].dropna().unique().tolist()
         
-        with col1:
-            total_sessions = merged_df['sessions'].sum() if 'sessions' in merged_df.columns else 0
-            st.metric("📊 Sesiones Totales", f"{total_sessions:,.0f}")
+        # Obtener pageviews del mes actual
+        monthly_pageviews = 0
+        if sheets_urls_for_metrics:
+            with st.spinner("Cargando métricas del mes..."):
+                monthly_pageviews = get_monthly_pageviews_by_sheets(
+                    media_config['property_id'],
+                    credentials_file,
+                    sheets_urls_for_metrics,
+                    media_config['domain']
+                )
         
-        with col2:
-            total_users = merged_df['totalUsers'].sum() if 'totalUsers' in merged_df.columns else 0
-            st.metric("👥 Usuarios Totales", f"{total_users:,.0f}")
+        # Métricas principales - Diseño más grande y prominente
+        articles_count = len(sheets_filtered) if not sheets_filtered.empty else 0
         
-        with col3:
-            total_pageviews = merged_df['screenPageViews'].sum() if 'screenPageViews' in merged_df.columns else 0
-            st.metric("👁️ Vistas de Página", f"{total_pageviews:,.0f}")
-        
-        with col4:
-            avg_bounce = merged_df['bounceRate'].mean() if 'bounceRate' in merged_df.columns else 0
-            st.metric("📉 Tasa de Rebote Promedio", f"{avg_bounce:.1f}%")
-        
+        st.markdown(f"""
+        <div style="text-align: center; padding: 20px 0;">
+            <div style="margin-bottom: 30px;">
+                <h2 style="color: #1f77b4; font-size: 24px; margin-bottom: 5px;">📊 Pageviews del mes (solo URLs del Sheet)</h2>
+                <h1 style="color: #1f77b4; font-size: 48px; font-weight: bold; margin: 0;">{monthly_pageviews:,}</h1>
+            </div>
+            <div>
+                <h3 style="color: #666; font-size: 20px; margin: 0;">📰 {articles_count:,} notas generadas</h3>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
         
         # Obtener datos de GA4 para KPI (solo URLs del Sheet del mes actual)
