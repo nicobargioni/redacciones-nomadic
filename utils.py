@@ -1274,7 +1274,7 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
         return None
 
 @st.cache_data(ttl=300)
-def get_ga4_historical_data(property_id, credentials_file, start_date, end_date, time_granularity="day", sheets_urls=None):
+def get_ga4_historical_data(property_id, credentials_file, start_date, end_date, time_granularity="day", sheets_urls=None, domain=None):
     """
     Obtiene datos históricos de GA4 para análisis temporal, filtrando solo URLs del Sheet
     
@@ -1285,6 +1285,7 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
         end_date: Fecha de fin (datetime)
         time_granularity: "day", "week", "month"
         sheets_urls: Lista de URLs normalizadas del Google Sheet para filtrar
+        domain: Dominio del medio para normalización de URLs
     
     Returns:
         DataFrame con datos históricos por fecha y página
@@ -1366,7 +1367,7 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
                     
                     data.append({
                         'pagePath': page_path,
-                        'url_normalized': page_path,  # Usar el pagePath tal como viene
+                        'url_normalized': normalize_url(f"{domain}{page_path}") if domain else page_path,  # Normalizar con dominio completo
                         'date': datetime.strptime(date_str, '%Y%m%d'),
                         'pageviews': pageviews,
                         'sessions': sessions,

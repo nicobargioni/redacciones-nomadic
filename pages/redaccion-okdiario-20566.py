@@ -718,7 +718,8 @@ else:
                     hist_start_date,
                     hist_end_date,
                     time_granularity,
-                    sheets_urls
+                    sheets_urls,
+                    media_config['domain']
                 )
             
             if historical_df is not None and not historical_df.empty:

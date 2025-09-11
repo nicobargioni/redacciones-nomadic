@@ -789,6 +789,13 @@ else:
                     hist_start_date,
                     hist_end_date,
                     time_granularity,
+                    sheets_urls,
+                    media_config['domain']
+                    media_config['property_id'],
+                    credentials_file,
+                    hist_start_date,
+                    hist_end_date,
+                    time_granularity,
                     sheets_urls
                 )
             
