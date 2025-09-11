@@ -557,8 +557,8 @@ else:
             
             # Obtener URLs normalizadas del Sheet para filtrar
             sheets_urls = None
-            if not sheets_filtered.empty and 'url_normalized' in merged_df.columns:
-                sheets_urls = merged_df['url_normalized'].dropna().unique().tolist()
+            if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
+                sheets_urls = sheets_filtered['url_normalized'].dropna().unique().tolist()
             
             # Si es personalizado, mostrar selectores de fecha
             if comparison_type == "custom":
@@ -777,8 +777,8 @@ else:
             
             # Obtener URLs del Sheet para filtrar
             sheets_urls = None
-            if not sheets_filtered.empty and 'url_normalized' in merged_df.columns:
-                sheets_urls = merged_df['url_normalized'].dropna().unique().tolist()
+            if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
+                sheets_urls = sheets_filtered['url_normalized'].dropna().unique().tolist()
             
             # Cargar datos históricos
             with st.spinner("Cargando datos históricos..."):

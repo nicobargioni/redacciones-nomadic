@@ -1309,18 +1309,26 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
                 page_path = row['dimensionValues'][0]['value']
                 date_str = row['dimensionValues'][1]['value']
                 
-                # Normalizar la URL de GA4 para comparar con el Sheet
-                normalized_ga4_url = normalize_url(f"domain.com{page_path}")
+                # Buscar si este pagePath está en alguna de las URLs del Sheet
+                # Comparar el path completo ya que sheets_urls ya está normalizado
+                match_found = False
+                if sheets_urls:
+                    for sheet_url in sheets_urls:
+                        # Verificar si el pagePath está contenido en la URL del Sheet
+                        if page_path in sheet_url or sheet_url.endswith(page_path.lstrip('/')):
+                            match_found = True
+                            break
+                else:
+                    match_found = True  # Si no hay filtro, incluir todo
                 
-                # Solo incluir si la URL está en el Sheet (o si no hay filtro)
-                if not sheets_urls or any(normalized_ga4_url == sheet_url for sheet_url in sheets_urls):
+                if match_found:
                     pageviews = int(row['metricValues'][0]['value'])
                     sessions = int(row['metricValues'][1]['value'])
                     users = int(row['metricValues'][2]['value'])
                     
                     data.append({
                         'pagePath': page_path,
-                        'url_normalized': normalized_ga4_url,
+                        'url_normalized': page_path,  # Usar el pagePath tal como viene
                         'date': datetime.strptime(date_str, '%Y%m%d'),
                         'pageviews': pageviews,
                         'sessions': sessions,
@@ -1328,6 +1336,11 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
                     })
         
         df = pd.DataFrame(data)
+        
+        logger.info(f"GA4 historical response: {len(response.get('rows', []))} rows from GA4")
+        if sheets_urls:
+            logger.info(f"Filtering by {len(sheets_urls)} sheet URLs")
+        logger.info(f"Final dataframe: {len(df)} rows after filtering")
         
         if not df.empty:
             # Aplicar granularidad temporal
