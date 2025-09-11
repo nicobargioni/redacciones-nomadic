@@ -1041,11 +1041,17 @@ def get_ga4_growth_data(property_id, credentials_file, comparison_type="day", sh
                 # Si tenemos URLs del Sheet, filtrar solo esas
                 for row in response['rows']:
                     page_path = row['dimensionValues'][0]['value']
-                    # Normalizar la URL de GA4 para comparar
-                    normalized_ga4_url = normalize_url(f"domain.com{page_path}")  # El dominio se ignorará en normalize_url
                     
-                    # Solo incluir si la URL está en el Sheet
-                    if any(normalized_ga4_url == sheet_url for sheet_url in sheets_urls):
+                    # Buscar si este pagePath está en alguna de las URLs del Sheet
+                    # Comparar el path completo ya que sheets_urls ya está normalizado
+                    match_found = False
+                    for sheet_url in sheets_urls:
+                        # Verificar si el pagePath está contenido en la URL del Sheet
+                        if page_path in sheet_url or sheet_url.endswith(page_path.lstrip('/')):
+                            match_found = True
+                            break
+                    
+                    if match_found:
                         pageviews = int(row['metricValues'][0]['value'])
                         sessions = int(row['metricValues'][1]['value'])
                         users = int(row['metricValues'][2]['value'])
@@ -1161,11 +1167,17 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
                 # Si tenemos URLs del Sheet, filtrar solo esas
                 for row in response['rows']:
                     page_path = row['dimensionValues'][0]['value']
-                    # Normalizar la URL de GA4 para comparar
-                    normalized_ga4_url = normalize_url(f"domain.com{page_path}")  # El dominio se ignorará en normalize_url
                     
-                    # Solo incluir si la URL está en el Sheet
-                    if any(normalized_ga4_url == sheet_url for sheet_url in sheets_urls):
+                    # Buscar si este pagePath está en alguna de las URLs del Sheet
+                    # Comparar el path completo ya que sheets_urls ya está normalizado
+                    match_found = False
+                    for sheet_url in sheets_urls:
+                        # Verificar si el pagePath está contenido en la URL del Sheet
+                        if page_path in sheet_url or sheet_url.endswith(page_path.lstrip('/')):
+                            match_found = True
+                            break
+                    
+                    if match_found:
                         pageviews = int(row['metricValues'][0]['value'])
                         sessions = int(row['metricValues'][1]['value'])
                         users = int(row['metricValues'][2]['value'])
