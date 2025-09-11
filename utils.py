@@ -367,6 +367,8 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         # Convertir fecha
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
+            # Formatear fecha como dd/mm/yyyy para mostrar
+            df['date_formatted'] = df['date'].dt.strftime('%d/%m/%Y')
         
         logger.info(f"GA4 datos obtenidos: {len(df)} filas" + (f" (filtrado por {country_filter})" if country_filter else ""))
         return df
@@ -499,6 +501,8 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         # Convertir fecha
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'], format='%Y%m%d')
+            # Formatear fecha como dd/mm/yyyy para mostrar
+            df['date_formatted'] = df['date'].dt.strftime('%d/%m/%Y')
         
         logger.info(f"GA4 datos obtenidos: {len(df)} filas")
         return df
@@ -619,6 +623,8 @@ def load_google_sheet_data():
         for col in date_columns:
             try:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
+                # Formatear fechas como dd/mm/yyyy para mostrar
+                df[f"{col}_formatted"] = df[col].dt.strftime('%d/%m/%Y')
             except:
                 pass
         
@@ -695,6 +701,19 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
         how='left',
         suffixes=('', '_ga4')
     )
+    
+    # Formatear fechas de publicación
+    date_columns = ['datePub', 'fecha_publicacion', 'fecha', 'date']
+    for col in date_columns:
+        if col in merged_df.columns:
+            try:
+                # Convertir a datetime si no lo está ya
+                merged_df[col] = pd.to_datetime(merged_df[col], errors='coerce')
+                # Formatear como dd/mm/yyyy
+                merged_df[col] = merged_df[col].dt.strftime('%d/%m/%Y')
+            except Exception as e:
+                logger.warning(f"Error formateando fecha en columna {col}: {e}")
+                continue
     
     # Llenar NaN con 0 para métricas
     metric_columns = ['sessions', 'totalUsers', 'screenPageViews', 
@@ -1365,10 +1384,13 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
             # Aplicar granularidad temporal
             if time_granularity == "week":
                 df['period'] = df['date'].dt.to_period('W').dt.start_time
+                df['period_formatted'] = df['period'].dt.strftime('%d/%m/%Y')
             elif time_granularity == "month":
                 df['period'] = df['date'].dt.to_period('M').dt.start_time
+                df['period_formatted'] = df['period'].dt.strftime('%d/%m/%Y')
             else:  # day
                 df['period'] = df['date']
+                df['period_formatted'] = df['period'].dt.strftime('%d/%m/%Y')
             
             logger.info(f"Datos históricos obtenidos: {len(df)} filas, granularidad: {time_granularity}")
         
