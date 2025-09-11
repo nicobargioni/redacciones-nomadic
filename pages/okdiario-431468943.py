@@ -207,9 +207,6 @@ else:
             st.warning("⚠️ Los filtros de fuente/medio no devolvieron datos de GA4")
             merged_df = sheets_filtered  # Solo datos del sheet
         
-        # Métricas principales - Pageviews del mes actual por URLs del Sheet
-        col1, col2, col3, col4 = st.columns(4)
-        
         # Obtener URLs del Sheet filtradas para las métricas
         sheets_urls_for_metrics = None
         if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
@@ -226,24 +223,12 @@ else:
                     media_config['domain']
                 )
         
-        with col1:
-            st.metric("📊 Pageviews del Mes", f"{monthly_pageviews:,.0f}")
+        # Métrica principal
+        st.metric("📊 Pageviews del mes (solo URLs del Sheet)", f"{monthly_pageviews:,.0f}")
         
-        with col2:
-            articles_count = len(sheets_filtered) if not sheets_filtered.empty else 0
-            st.metric("📰 Artículos en Sheet", f"{articles_count:,.0f}")
-        
-        with col3:
-            avg_pageviews = monthly_pageviews / articles_count if articles_count > 0 else 0
-            st.metric("📈 Promedio por Artículo", f"{avg_pageviews:,.0f}")
-        
-        with col4:
-            # Calcular días transcurridos del mes
-            from datetime import datetime
-            today = datetime.now()
-            days_in_month = today.day
-            avg_daily = monthly_pageviews / days_in_month if days_in_month > 0 else 0
-            st.metric("📅 Promedio Diario", f"{avg_daily:,.0f}")
+        # Métrica secundaria
+        articles_count = len(sheets_filtered) if not sheets_filtered.empty else 0
+        st.markdown(f'<p style="color: gray; font-size: 14px;">📰 {articles_count:,} notas generadas</p>', unsafe_allow_html=True)
         
         st.markdown("---")
         
