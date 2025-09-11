@@ -14,9 +14,10 @@ from utils import (
     filter_media_urls,
     merge_sheets_with_ga4,
     create_media_config,
-    normalize_url
-,
-    check_login
+    normalize_url,
+    check_login,
+    get_ga4_growth_data,
+    get_ga4_growth_data_custom
 )
 
 # Configuración de la página
@@ -314,7 +315,7 @@ else:
                 total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
-        tab1, tab2, tab3 = st.tabs(["📊 KPI", "📋 Datos", "🔝 Top Páginas"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 KPI", "📋 Datos", "🔝 Top Páginas", "📈 Crecimiento"])
         
         with tab1:
             if country_filter != "Todos los países":
@@ -552,257 +553,204 @@ else:
                     st.info("No hay datos suficientes para mostrar la correlación")
         
         with tab4:
-            st.subheader("🔝 Top Páginas")
+            st.subheader("📈 Crecimiento")
             
-            # Selector de métrica
-            metric_options = [col for col in ['sessions', 'totalUsers', 'screenPageViews', 'newUsers'] 
-                            if col in merged_df.columns]
+            # Selector de tipo de comparación
+            col1, col2 = st.columns([1, 3])
             
-            if metric_options:
-                selected_metric = st.selectbox("Seleccionar métrica:", metric_options)
-                top_n = st.slider("Número de páginas a mostrar:", 5, 50, 20)
-                
-                # Top páginas
-                top_df = merged_df.nlargest(top_n, selected_metric)[['url_normalized', selected_metric]]
-                
-                # Gráfico
-                fig_top = go.Figure(data=[
-                    go.Bar(
-                        x=top_df[selected_metric],
-                        y=top_df['url_normalized'],
-                        orientation='h',
-                        marker_color=media_config['color']
-                    )
-                ])
-                fig_top.update_layout(
-                    title=f"Top {top_n} Páginas por {selected_metric}",
-                    xaxis_title=selected_metric,
-                    yaxis_title="URL",
-                    height=max(400, top_n * 20),
-                    yaxis=dict(autorange="reversed")
+            with col1:
+                comparison_type = st.selectbox(
+                    "Tipo de comparación:",
+                    ["day", "week", "month", "90days", "custom"],
+                    format_func=lambda x: {
+                        "day": "Día vs Día anterior",
+                        "week": "Semana vs Semana anterior", 
+                        "month": "Mes vs Mes anterior",
+                        "90days": "90 días vs 90 días anteriores",
+                        "custom": "Período personalizado"
+                    }[x],
+                    key="comparison_type_mundodeportivo"
                 )
-                st.plotly_chart(fig_top, use_container_width=True)
-                
-                # Tabla de datos
-                st.dataframe(top_df, use_container_width=True)
-        
-        with tab5:
-            st.subheader("📈 Tendencias")
             
-            # Usar ga4_filtered (ya filtrado por fuente/medio) para mostrar solo URLs que están en el Sheet
-            if 'ga4_filtered' in locals() and ga4_filtered is not None and 'date' in ga4_filtered.columns and 'merged_df' in locals() and not merged_df.empty:
-                # Obtener solo URLs normalizadas que están en el Sheet
-                sheet_urls = set(merged_df['url_normalized'].dropna())
-                ga4_for_trends = ga4_filtered[ga4_filtered['url_normalized'].isin(sheet_urls)].copy()
-                
-                if not ga4_for_trends.empty:
-                    # Filtrar por el rango de fechas seleccionado
-                    from datetime import datetime, timedelta
-                    
-                    # Calcular fechas de inicio y fin
-                    today = datetime.now()
-                    if date_option == "Preestablecido":
-                        days_map = {
-                            "7daysAgo": 7,
-                            "14daysAgo": 14, 
-                            "30daysAgo": 30,
-                            "90daysAgo": 90
-                        }
-                        days_back = days_map.get(date_range, 7)
-                        start_date = today - timedelta(days=days_back)
-                    else:
-                        # Para fechas personalizadas, usar la fecha de inicio seleccionada
-                        start_date = pd.to_datetime(start_date_custom)
-                    
-                    # Filtrar ga4_for_trends por fechas
-                    ga4_for_trends['date_parsed'] = pd.to_datetime(ga4_for_trends['date'])
-                    ga4_trends_filtered = ga4_for_trends[
-                        ga4_for_trends['date_parsed'] >= start_date
-                    ].copy()
-                    
-                    # Calcular period_name
-                    if date_option == "Preestablecido":
-                        period_name = {
-                            "7daysAgo": "7 días",
-                            "14daysAgo": "14 días", 
-                            "30daysAgo": "30 días",
-                            "90daysAgo": "90 días"
-                        }.get(date_range, "período seleccionado")
-                    else:
-                        period_name = f"{start_date_custom.strftime('%d/%m/%Y')} - {end_date_custom.strftime('%d/%m/%Y')}"
-                    
-                    if not ga4_trends_filtered.empty:
-                        # Tendencia diaria (solo URLs del Sheet en el rango seleccionado)
-                        daily_metrics = ga4_trends_filtered.groupby('date').agg({
-                            'sessions': 'sum',
-                            'totalUsers': 'sum',
-                            'screenPageViews': 'sum'
-                        }).reset_index()
-                    else:
-                        daily_metrics = pd.DataFrame()
-                    
-                    # Mostrar gráficos solo si hay datos
-                    if not daily_metrics.empty:
-                        # Gráfico de líneas
-                        fig_trend = go.Figure()
-                        
-                        fig_trend.add_trace(go.Scatter(
-                            x=daily_metrics['date'],
-                            y=daily_metrics['sessions'],
-                            mode='lines+markers',
-                            name='Sesiones',
-                            line=dict(color=media_config['color'])
-                        ))
-                        
-                        fig_trend.add_trace(go.Scatter(
-                            x=daily_metrics['date'],
-                            y=daily_metrics['totalUsers'],
-                            mode='lines+markers',
-                            name='Usuarios',
-                            line=dict(color='orange')
-                        ))
-                        
-                        fig_trend.update_layout(
-                            title=f'Tendencia de Tráfico Diario - Últimos {period_name}',
-                            xaxis_title='Fecha',
-                            yaxis_title='Cantidad',
-                            hovermode='x unified'
-                        )
-                        
-                        st.plotly_chart(fig_trend, use_container_width=True)
-                        
-                        # Métricas por día de la semana (usando datos filtrados)
-                        ga4_trends_filtered['dayOfWeek'] = pd.to_datetime(ga4_trends_filtered['date']).dt.day_name()
-                        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-                        
-                        weekly_pattern = ga4_trends_filtered.groupby('dayOfWeek')['sessions'].sum().reindex(day_order)
-                        
-                        fig_weekly = px.bar(
-                            x=weekly_pattern.index,
-                            y=weekly_pattern.values,
-                            title=f'Patrón Semanal de Tráfico - Últimos {period_name}',
-                            labels={'x': 'Día de la Semana', 'y': 'Sesiones Totales'},
-                            color_discrete_sequence=[media_config['color']]
-                        )
-                        st.plotly_chart(fig_weekly, use_container_width=True)
-                    else:
-                        st.info(f"No hay datos de tendencias para los últimos {period_name}")
-                else:
-                    st.info("No hay datos de tendencias para las URLs del Sheet")
-            else:
-                st.info("No hay datos de tendencias disponibles")
-        
-        with tab6:
-            st.subheader("👤 Performance por Autor")
-            
-            if 'autor' in merged_df.columns and not merged_df.empty:
-                # Calcular métricas por autor
-                author_performance = merged_df.groupby('autor').agg({
-                    'screenPageViews': 'sum',
-                    'titulo': 'count',  # Contar notas
-                    'sessions': 'sum',
-                    'totalUsers': 'sum'
-                }).reset_index()
-                
-                # Renombrar columnas
-                author_performance = author_performance.rename(columns={
-                    'titulo': 'Notas Redactadas',
-                    'screenPageViews': 'Page Views',
-                    'sessions': 'Sesiones',
-                    'totalUsers': 'Usuarios'
-                })
-                
-                # Ordenar por Page Views descendente
-                author_performance = author_performance.sort_values('Page Views', ascending=False)
-                
-                # Mostrar métricas principales
-                col1, col2, col3 = st.columns(3)
-                
+            # Si es personalizado, mostrar selectores de fecha
+            if comparison_type == "custom":
+                st.markdown("**Período Actual:**")
+                col1, col2 = st.columns(2)
                 with col1:
-                    total_authors = len(author_performance)
-                    st.metric("📝 Total Autores", total_authors)
-                
+                    current_start = st.date_input(
+                        "Inicio actual:",
+                        value=datetime.now() - timedelta(days=7),
+                        key="growth_current_start_mundodeportivo"
+                    )
                 with col2:
-                    avg_pageviews = author_performance['Page Views'].mean()
-                    st.metric("👁️ Page Views Promedio", f"{avg_pageviews:,.0f}")
+                    current_end = st.date_input(
+                        "Fin actual:",
+                        value=datetime.now(),
+                        key="growth_current_end_mundodeportivo"
+                    )
                 
+                st.markdown("**Período de Comparación:**")
+                col3, col4 = st.columns(2)
                 with col3:
-                    avg_articles = author_performance['Notas Redactadas'].mean()
-                    st.metric("📰 Notas Promedio", f"{avg_articles:.1f}")
+                    previous_start = st.date_input(
+                        "Inicio comparación:",
+                        value=datetime.now() - timedelta(days=14),
+                        key="growth_previous_start_mundodeportivo"
+                    )
+                with col4:
+                    previous_end = st.date_input(
+                        "Fin comparación:",
+                        value=datetime.now() - timedelta(days=8),
+                        key="growth_previous_end_mundodeportivo"
+                    )
+                
+                # Obtener datos personalizados
+                growth_data = get_ga4_growth_data_custom(
+                    media_config['property_id'],
+                    credentials_file,
+                    current_start,
+                    current_end,
+                    previous_start,
+                    previous_end
+                )
+            else:
+                # Obtener datos predefinidos
+                growth_data = get_ga4_growth_data(
+                    media_config['property_id'],
+                    credentials_file,
+                    comparison_type
+                )
+            
+            if growth_data:
+                st.success(f"📊 Comparando: {growth_data['period_name']}")
+                
+                # Mostrar períodos
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.info(f"**Período Actual:** {growth_data['current_period']}")
+                with col2:
+                    st.info(f"**Período Anterior:** {growth_data['previous_period']}")
                 
                 st.markdown("---")
                 
-                # Gráfico de Page Views por Autor (Top 15)
-                top_authors_pv = author_performance.head(15)
-                fig_pv = px.bar(
-                    top_authors_pv,
-                    x='Page Views',
-                    y='autor',
-                    orientation='h',
-                    title='Top Autores por Page Views',
-                    labels={'autor': 'Autor', 'Page Views': 'Page Views'},
-                    color_discrete_sequence=[media_config['color']]
+                # Métricas de crecimiento
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    pv_data = growth_data['data']['pageviews']
+                    growth_pct = pv_data['growth_percentage']
+                    delta_color = "normal" if growth_pct >= 0 else "inverse"
+                    st.metric(
+                        "📊 Page Views",
+                        f"{pv_data['current']:,}",
+                        delta=f"{growth_pct:+.1f}% ({pv_data['growth_absolute']:+,})",
+                        delta_color=delta_color
+                    )
+                
+                with col2:
+                    sessions_data = growth_data['data']['sessions']
+                    growth_pct = sessions_data['growth_percentage']
+                    delta_color = "normal" if growth_pct >= 0 else "inverse"
+                    st.metric(
+                        "👥 Sesiones",
+                        f"{sessions_data['current']:,}",
+                        delta=f"{growth_pct:+.1f}% ({sessions_data['growth_absolute']:+,})",
+                        delta_color=delta_color
+                    )
+                
+                with col3:
+                    users_data = growth_data['data']['users']
+                    growth_pct = users_data['growth_percentage']
+                    delta_color = "normal" if growth_pct >= 0 else "inverse"
+                    st.metric(
+                        "🔗 Usuarios",
+                        f"{users_data['current']:,}",
+                        delta=f"{growth_pct:+.1f}% ({users_data['growth_absolute']:+,})",
+                        delta_color=delta_color
+                    )
+                
+                st.markdown("---")
+                
+                # Gráfico de comparación
+                metrics = ['pageviews', 'sessions', 'users']
+                metric_names = ['Page Views', 'Sesiones', 'Usuarios']
+                current_values = [growth_data['data'][m]['current'] for m in metrics]
+                previous_values = [growth_data['data'][m]['previous'] for m in metrics]
+                
+                # Crear DataFrame para el gráfico
+                import pandas as pd
+                chart_data = pd.DataFrame({
+                    'Métrica': metric_names + metric_names,
+                    'Valor': current_values + previous_values,
+                    'Período': ['Actual'] * 3 + ['Anterior'] * 3
+                })
+                
+                fig_comparison = px.bar(
+                    chart_data,
+                    x='Métrica',
+                    y='Valor',
+                    color='Período',
+                    barmode='group',
+                    title=f'Comparación de Métricas: {growth_data["period_name"]}',
+                    color_discrete_map={
+                        'Actual': media_config['color'],
+                        'Anterior': '#cccccc'
+                    }
                 )
-                fig_pv.update_yaxes(autorange='reversed')
-                st.plotly_chart(fig_pv, use_container_width=True)
+                st.plotly_chart(fig_comparison, use_container_width=True)
                 
-                # Gráfico de Notas Redactadas por Autor (Top 15)
-                top_authors_notes = author_performance.nlargest(15, 'Notas Redactadas')
-                fig_notes = px.bar(
-                    top_authors_notes,
-                    x='Notas Redactadas',
-                    y='autor',
-                    orientation='h',
-                    title='Top Autores por Notas Redactadas',
-                    labels={'autor': 'Autor', 'Notas Redactadas': 'Cantidad de Notas'},
-                    color_discrete_sequence=['#ff6b35']
-                )
-                fig_notes.update_yaxes(autorange='reversed')
-                st.plotly_chart(fig_notes, use_container_width=True)
+                # Gráfico de crecimiento porcentual
+                growth_percentages = [growth_data['data'][m]['growth_percentage'] for m in metrics]
+                colors = ['green' if x >= 0 else 'red' for x in growth_percentages]
                 
-                # Gráfico de dispersión: Page Views vs Notas Redactadas
-                fig_scatter = px.scatter(
-                    author_performance,
-                    x='Notas Redactadas',
-                    y='Page Views',
-                    title='Relación entre Notas Redactadas y Page Views',
-                    labels={'Notas Redactadas': 'Cantidad de Notas', 'Page Views': 'Page Views'},
-                    hover_data=['autor'],
-                    color_discrete_sequence=[media_config['color']]
-                )
-                st.plotly_chart(fig_scatter, use_container_width=True)
+                fig_growth = go.Figure(data=[
+                    go.Bar(
+                        x=metric_names,
+                        y=growth_percentages,
+                        marker_color=colors,
+                        text=[f"{x:+.1f}%" for x in growth_percentages],
+                        textposition='auto',
+                    )
+                ])
                 
-                # Tabla detallada
-                st.subheader("📊 Tabla Detallada por Autor")
-                
-                # Selector para ordenar
-                sort_by = st.selectbox(
-                    "Ordenar por:",
-                    ['Page Views', 'Notas Redactadas', 'Sesiones', 'Usuarios'],
-                    key="sort_authors_mundodeportivo"
+                fig_growth.update_layout(
+                    title=f'Crecimiento Porcentual: {growth_data["period_name"]}',
+                    yaxis_title='Crecimiento (%)',
+                    showlegend=False
                 )
                 
-                # Ordenar según selección
-                author_display = author_performance.sort_values(sort_by, ascending=False)
+                # Agregar línea en y=0
+                fig_growth.add_hline(y=0, line_dash="dash", line_color="gray")
                 
-                # Formatear números para mejor visualización
-                author_display_formatted = author_display.copy()
-                author_display_formatted['Page Views'] = author_display_formatted['Page Views'].apply(lambda x: f"{x:,.0f}")
-                author_display_formatted['Sesiones'] = author_display_formatted['Sesiones'].apply(lambda x: f"{x:,.0f}")
-                author_display_formatted['Usuarios'] = author_display_formatted['Usuarios'].apply(lambda x: f"{x:,.0f}")
+                st.plotly_chart(fig_growth, use_container_width=True)
                 
-                st.dataframe(author_display_formatted, use_container_width=True, height=400)
-                
-                # Descarga de datos de performance
-                csv_performance = author_performance.to_csv(index=False)
-                st.download_button(
-                    label="📥 Descargar Performance por Autor",
-                    data=csv_performance,
-                    file_name=f"mundodeportivo_performance_autores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
             else:
-                st.info("No hay datos de autores disponibles para mostrar performance")
+                st.error("❌ No se pudieron obtener los datos de crecimiento")
+
+    elif ga4_df is not None and not ga4_df.empty:
+        # Solo datos de GA4
+        st.warning(f"⚠️ No se encontraron URLs de {media_config['name']} en el Google Sheet. Mostrando solo datos de GA4.")
+        
+        # Métricas de GA4
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("📊 Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
+        with col2:
+            st.metric("👥 Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
+        with col3:
+            st.metric("👁️ Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
+        with col4:
+            st.metric("📉 Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
+        
+        st.markdown("---")
+        st.subheader("Datos de Google Analytics 4")
+        st.dataframe(ga4_df, use_container_width=True)
+    
+    else:
+        # Solo datos del Sheet
+        st.warning("⚠️ No se pudieron obtener datos de GA4. Mostrando solo datos del Google Sheet.")
+        st.dataframe(sheets_filtered, use_container_width=True)
 
 # Footer
 st.markdown("---")

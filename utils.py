@@ -941,3 +941,248 @@ def create_media_config():
             'color': '#0d47a1'
         }
     }
+
+@st.cache_data(ttl=300)
+def get_ga4_growth_data(property_id, credentials_file, comparison_type="day"):
+    """
+    Obtiene datos de crecimiento comparando períodos t vs t-1
+    comparison_type: "day", "week", "month", "90days", "custom"
+    """
+    from datetime import datetime, timedelta
+    
+    try:
+        # Determinar qué tipo de cuenta usar según la propiedad
+        if property_id == "255037852":  # OK Diario usa acceso_medios
+            account_type = "acceso_medios"
+        elif credentials_file == "damian_credentials_analytics_2025.json":  # Mundo Deportivo usa damian
+            account_type = "damian"
+        else:  # Clarín y Olé usan acceso
+            account_type = "acceso"
+        
+        # Usar siempre Streamlit secrets
+        if hasattr(st, 'secrets'):
+            secret_key = f'google_oauth_{account_type}'
+            if secret_key in st.secrets:
+                logger.info(f"Usando credenciales {account_type} desde Streamlit secrets")
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                logger.error(f"No se encontró la sección {secret_key} en Streamlit secrets")
+                return None
+        else:
+            return None
+        
+        if not client:
+            return None
+        
+        today = datetime.now()
+        
+        # Definir períodos según el tipo de comparación
+        if comparison_type == "day":
+            current_start = today - timedelta(days=1)  # Ayer
+            current_end = today - timedelta(days=1)    # Ayer
+            previous_start = today - timedelta(days=2)  # Anteayer
+            previous_end = today - timedelta(days=2)    # Anteayer
+            period_name = "Día"
+        elif comparison_type == "week":
+            current_start = today - timedelta(days=7)   # Última semana
+            current_end = today - timedelta(days=1)     # Hasta ayer
+            previous_start = today - timedelta(days=14) # Semana anterior
+            previous_end = today - timedelta(days=8)    # Hasta hace 8 días
+            period_name = "Semana"
+        elif comparison_type == "month":
+            # Mes actual vs mes anterior
+            current_start = today.replace(day=1)        # Inicio mes actual
+            current_end = today                         # Hoy
+            # Mes anterior
+            if today.month == 1:
+                previous_start = datetime(today.year - 1, 12, 1)
+                previous_end = datetime(today.year, 1, 1) - timedelta(days=1)
+            else:
+                previous_start = datetime(today.year, today.month - 1, 1)
+                previous_end = datetime(today.year, today.month, 1) - timedelta(days=1)
+            period_name = "Mes"
+        elif comparison_type == "90days":
+            current_start = today - timedelta(days=90)  # Últimos 90 días
+            current_end = today                         # Hoy
+            previous_start = today - timedelta(days=180) # 90 días anteriores
+            previous_end = today - timedelta(days=91)   # Hasta hace 91 días
+            period_name = "90 días"
+        else:
+            return None
+        
+        # Función para obtener datos de un período
+        def get_period_data(start_date, end_date):
+            request_body = {
+                'dimensions': [
+                    {'name': 'pagePath'}
+                ],
+                'metrics': [
+                    {'name': 'screenPageViews'},
+                    {'name': 'sessions'},
+                    {'name': 'totalUsers'}
+                ],
+                'dateRanges': [{'startDate': start_date.strftime("%Y-%m-%d"), 
+                               'endDate': end_date.strftime("%Y-%m-%d")}],
+                'limit': 10000
+            }
+            
+            response = client.properties().runReport(
+                property=f"properties/{property_id}", 
+                body=request_body
+            ).execute()
+            
+            # Procesar respuesta
+            total_pageviews = 0
+            total_sessions = 0
+            total_users = 0
+            
+            if 'rows' in response:
+                for row in response['rows']:
+                    pageviews = int(row['metricValues'][0]['value'])
+                    sessions = int(row['metricValues'][1]['value'])
+                    users = int(row['metricValues'][2]['value'])
+                    
+                    total_pageviews += pageviews
+                    total_sessions += sessions
+                    total_users += users
+            
+            return {
+                'pageviews': total_pageviews,
+                'sessions': total_sessions,
+                'users': total_users
+            }
+        
+        # Obtener datos de ambos períodos
+        current_data = get_period_data(current_start, current_end)
+        previous_data = get_period_data(previous_start, previous_end)
+        
+        # Calcular crecimiento
+        growth_data = {}
+        for metric in ['pageviews', 'sessions', 'users']:
+            current_value = current_data[metric]
+            previous_value = previous_data[metric]
+            
+            if previous_value > 0:
+                growth_percentage = ((current_value - previous_value) / previous_value) * 100
+            else:
+                growth_percentage = 100 if current_value > 0 else 0
+            
+            growth_data[metric] = {
+                'current': current_value,
+                'previous': previous_value,
+                'growth_percentage': growth_percentage,
+                'growth_absolute': current_value - previous_value
+            }
+        
+        return {
+            'period_name': period_name,
+            'current_period': f"{current_start.strftime('%d/%m/%Y')} - {current_end.strftime('%d/%m/%Y')}",
+            'previous_period': f"{previous_start.strftime('%d/%m/%Y')} - {previous_end.strftime('%d/%m/%Y')}",
+            'data': growth_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de crecimiento: {e}")
+        return None
+
+@st.cache_data(ttl=300)
+def get_ga4_growth_data_custom(property_id, credentials_file, current_start, current_end, previous_start, previous_end):
+    """
+    Obtiene datos de crecimiento para períodos personalizados
+    """
+    try:
+        # Determinar qué tipo de cuenta usar según la propiedad
+        if property_id == "255037852":  # OK Diario usa acceso_medios
+            account_type = "acceso_medios"
+        elif credentials_file == "damian_credentials_analytics_2025.json":  # Mundo Deportivo usa damian
+            account_type = "damian"
+        else:  # Clarín y Olé usan acceso
+            account_type = "acceso"
+        
+        # Usar siempre Streamlit secrets
+        if hasattr(st, 'secrets'):
+            secret_key = f'google_oauth_{account_type}'
+            if secret_key in st.secrets:
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                return None
+        else:
+            return None
+        
+        if not client:
+            return None
+        
+        # Función para obtener datos de un período
+        def get_period_data(start_date, end_date):
+            request_body = {
+                'dimensions': [
+                    {'name': 'pagePath'}
+                ],
+                'metrics': [
+                    {'name': 'screenPageViews'},
+                    {'name': 'sessions'},
+                    {'name': 'totalUsers'}
+                ],
+                'dateRanges': [{'startDate': start_date.strftime("%Y-%m-%d"), 
+                               'endDate': end_date.strftime("%Y-%m-%d")}],
+                'limit': 10000
+            }
+            
+            response = client.properties().runReport(
+                property=f"properties/{property_id}", 
+                body=request_body
+            ).execute()
+            
+            # Procesar respuesta
+            total_pageviews = 0
+            total_sessions = 0
+            total_users = 0
+            
+            if 'rows' in response:
+                for row in response['rows']:
+                    pageviews = int(row['metricValues'][0]['value'])
+                    sessions = int(row['metricValues'][1]['value'])
+                    users = int(row['metricValues'][2]['value'])
+                    
+                    total_pageviews += pageviews
+                    total_sessions += sessions
+                    total_users += users
+            
+            return {
+                'pageviews': total_pageviews,
+                'sessions': total_sessions,
+                'users': total_users
+            }
+        
+        # Obtener datos de ambos períodos
+        current_data = get_period_data(current_start, current_end)
+        previous_data = get_period_data(previous_start, previous_end)
+        
+        # Calcular crecimiento
+        growth_data = {}
+        for metric in ['pageviews', 'sessions', 'users']:
+            current_value = current_data[metric]
+            previous_value = previous_data[metric]
+            
+            if previous_value > 0:
+                growth_percentage = ((current_value - previous_value) / previous_value) * 100
+            else:
+                growth_percentage = 100 if current_value > 0 else 0
+            
+            growth_data[metric] = {
+                'current': current_value,
+                'previous': previous_value,
+                'growth_percentage': growth_percentage,
+                'growth_absolute': current_value - previous_value
+            }
+        
+        return {
+            'period_name': 'Personalizado',
+            'current_period': f"{current_start.strftime('%d/%m/%Y')} - {current_end.strftime('%d/%m/%Y')}",
+            'previous_period': f"{previous_start.strftime('%d/%m/%Y')} - {previous_end.strftime('%d/%m/%Y')}",
+            'data': growth_data
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de crecimiento personalizado: {e}")
+        return None

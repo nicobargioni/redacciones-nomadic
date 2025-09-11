@@ -559,25 +559,23 @@ else:
                     )
                 
                 with col3:
-                    # Calcular diferencia entre promedios si es posible
+                    # Calculate what percentage my articles represent of total site traffic
                     if sheets_filtered is not None and not sheets_filtered.empty and 'screenPageViews' in merged_df.columns:
-                        avg_pv_sheets = merged_df['screenPageViews'].sum() / len(merged_df) if len(merged_df) > 0 else 0
-                        diff_percentage = ((avg_pv_sheets - avg_pv_site) / avg_pv_site * 100) if avg_pv_site > 0 else 0
+                        my_articles_pageviews = merged_df['screenPageViews'].sum()
+                        total_site_pageviews = pageviews_data['total_pageviews']
                         
-                        if diff_percentage > 0:
-                            delta_color = "normal"
-                            delta_text = f"+{diff_percentage:.1f}%"
+                        if total_site_pageviews > 0:
+                            traffic_representation = (my_articles_pageviews / total_site_pageviews) * 100
                         else:
-                            delta_color = "inverse"
-                            delta_text = f"{diff_percentage:.1f}%"
+                            traffic_representation = 0
                         
                         st.metric(
-                            "📊 Diferencia Sheets vs Sitio",
-                            f"{delta_text}",
-                            help="Diferencia porcentual entre el promedio de PV de las notas del Sheet vs el promedio del sitio"
+                            "📊 Representación del Tráfico",
+                            f"{traffic_representation:.1f}%",
+                            help="Porcentaje del tráfico total del sitio que representan mis artículos"
                         )
                     else:
-                        st.metric("📊 Diferencia", "N/A")
+                        st.metric("📊 Representación del Tráfico", "N/A")
                 
                 # Gráfico comparativo
                 if sheets_filtered is not None and not sheets_filtered.empty and 'screenPageViews' in merged_df.columns:
