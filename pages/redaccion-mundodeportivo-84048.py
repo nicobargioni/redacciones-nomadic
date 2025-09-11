@@ -19,7 +19,8 @@ from utils import (
     get_ga4_pageviews_data,
     get_ga4_historical_data,
     get_ga4_growth_data,
-    get_ga4_growth_data_custom)
+    get_ga4_growth_data_custom,
+    format_growth_percentage)
 
 # Configuración de la página
 st.set_page_config(
@@ -629,33 +630,33 @@ else:
                 with col1:
                     pv_data = growth_data['data']['pageviews']
                     growth_pct = pv_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 else "inverse"
+                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
                     st.metric(
                         "📊 Page Views",
                         f"{pv_data['current']:,}",
-                        delta=f"{growth_pct:+.1f}% ({pv_data['growth_absolute']:+,})",
+                        delta=format_growth_percentage(growth_pct, pv_data['growth_absolute']),
                         delta_color=delta_color
                     )
                 
                 with col2:
                     sessions_data = growth_data['data']['sessions']
                     growth_pct = sessions_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 else "inverse"
+                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
                     st.metric(
                         "👥 Sesiones",
                         f"{sessions_data['current']:,}",
-                        delta=f"{growth_pct:+.1f}% ({sessions_data['growth_absolute']:+,})",
+                        delta=format_growth_percentage(growth_pct, sessions_data['growth_absolute']),
                         delta_color=delta_color
                     )
                 
                 with col3:
                     users_data = growth_data['data']['users']
                     growth_pct = users_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 else "inverse"
+                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
                     st.metric(
                         "🔗 Usuarios",
                         f"{users_data['current']:,}",
-                        delta=f"{growth_pct:+.1f}% ({users_data['growth_absolute']:+,})",
+                        delta=format_growth_percentage(growth_pct, users_data['growth_absolute']),
                         delta_color=delta_color
                     )
                 

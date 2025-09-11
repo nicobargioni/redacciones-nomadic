@@ -15,6 +15,17 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
+def format_growth_percentage(growth_pct, growth_absolute):
+    """
+    Formatea el porcentaje de crecimiento manejando valores infinitos
+    """
+    if growth_pct == float('inf'):
+        return f"Nuevo (+{growth_absolute:,})"
+    elif growth_pct == float('-inf'):
+        return f"-100% ({growth_absolute:+,})"
+    else:
+        return f"{growth_pct:+.1f}% ({growth_absolute:+,})"
+
 def decode_pickle_base64_credentials(encoded_string):
     """
     Decodifica credenciales desde string pickle+base64
@@ -1088,8 +1099,12 @@ def get_ga4_growth_data(property_id, credentials_file, comparison_type="day", sh
             
             if previous_value > 0:
                 growth_percentage = ((current_value - previous_value) / previous_value) * 100
-            else:
-                growth_percentage = 100 if current_value > 0 else 0
+            elif previous_value == 0 and current_value > 0:
+                growth_percentage = float('inf')  # Crecimiento infinito (desde 0)
+            elif previous_value == 0 and current_value == 0:
+                growth_percentage = 0  # Sin cambio (ambos períodos en 0)
+            else:  # previous_value > 0 and current_value == 0
+                growth_percentage = -100  # Decrecimiento total
             
             growth_data[metric] = {
                 'current': current_value,
@@ -1214,8 +1229,12 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
             
             if previous_value > 0:
                 growth_percentage = ((current_value - previous_value) / previous_value) * 100
-            else:
-                growth_percentage = 100 if current_value > 0 else 0
+            elif previous_value == 0 and current_value > 0:
+                growth_percentage = float('inf')  # Crecimiento infinito (desde 0)
+            elif previous_value == 0 and current_value == 0:
+                growth_percentage = 0  # Sin cambio (ambos períodos en 0)
+            else:  # previous_value > 0 and current_value == 0
+                growth_percentage = -100  # Decrecimiento total
             
             growth_data[metric] = {
                 'current': current_value,
