@@ -16,7 +16,8 @@ from utils import (
     create_media_config,
     normalize_url,
     check_login,
-    get_ga4_pageviews_data)
+    get_ga4_pageviews_data,
+    get_ga4_historical_data)
 
 # Configuración de la página
 st.set_page_config(
@@ -253,7 +254,7 @@ else:
                 total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
-        tab1, tab2, tab4 = st.tabs(["📊 KPI", "📋 Datos", "🔝 Top Páginas"])
+        tab1, tab2, tab4, tab_historico = st.tabs(["📊 KPI", "📋 Datos", "🔝 Top Páginas", "📈 Histórico"])
         
         with tab1:
             st.subheader("📊 KPI Mensual - Olé (Estados Unidos)")
@@ -467,6 +468,216 @@ else:
                 
                 # Tabla de datos
                 st.dataframe(top_df, use_container_width=True)
+        
+        with tab_historico:
+            st.subheader("📈 Histórico")
+            
+            # Controles de configuración del histórico
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                # Selector de período
+                historical_period = st.selectbox(
+                    "Período de análisis:",
+                    ["3months", "6months", "1year", "custom"],
+                    format_func=lambda x: {
+                        "3months": "📅 Últimos 3 meses",
+                        "6months": "📅 Últimos 6 meses",
+                        "1year": "📅 Último año",
+                        "custom": "📅 Personalizado"
+                    }[x],
+                    key="historical_period_ole"
+                )
+            
+            with col2:
+                # Selector de granularidad temporal
+                time_granularity = st.selectbox(
+                    "Granularidad:",
+                    ["day", "week", "month"],
+                    format_func=lambda x: {
+                        "day": "📊 Diario",
+                        "week": "📊 Semanal",
+                        "month": "📊 Mensual"
+                    }[x],
+                    key="time_granularity_ole"
+                )
+            
+            # Configurar fechas según el período seleccionado
+            if historical_period == "custom":
+                col3, col4 = st.columns(2)
+                with col3:
+                    hist_start_date = st.date_input(
+                        "Fecha inicio:",
+                        value=datetime.now() - timedelta(days=90),
+                        key="hist_start_ole"
+                    )
+                with col4:
+                    hist_end_date = st.date_input(
+                        "Fecha fin:",
+                        value=datetime.now(),
+                        key="hist_end_ole"
+                    )
+            else:
+                # Períodos predefinidos
+                today = datetime.now()
+                if historical_period == "3months":
+                    hist_start_date = today - timedelta(days=90)
+                elif historical_period == "6months":
+                    hist_start_date = today - timedelta(days=180)
+                else:  # 1year
+                    hist_start_date = today - timedelta(days=365)
+                hist_end_date = today
+            
+            # Obtener URLs del Sheet para filtrar
+            sheets_urls = None
+            if not sheets_filtered.empty and 'url_normalized' in merged_df.columns:
+                sheets_urls = merged_df['url_normalized'].dropna().unique().tolist()
+            
+            # Cargar datos históricos
+            with st.spinner("Cargando datos históricos..."):
+                historical_df = get_ga4_historical_data(
+                    media_config['property_id'],
+                    credentials_file,
+                    hist_start_date,
+                    hist_end_date,
+                    time_granularity,
+                    sheets_urls
+                )
+            
+            if historical_df is not None and not historical_df.empty:
+                st.success(f"📊 Datos históricos cargados: {len(historical_df)} registros")
+                
+                # Agregar información de autores desde el Sheet si está disponible
+                if not sheets_filtered.empty and 'autor' in sheets_filtered.columns:
+                    # Crear mapping de URL -> autor
+                    url_author_map = sheets_filtered.set_index('url_normalized')['autor'].to_dict()
+                    historical_df['autor'] = historical_df['url_normalized'].map(url_author_map)
+                
+                st.markdown("---")
+                
+                # 1. GRÁFICO: Histórico de Notas
+                st.subheader("📊 Histórico de Notas")
+                st.caption("Pageviews acumuladas de todas las publicaciones en el tiempo")
+                
+                # Agrupar por período y sumar pageviews
+                notes_historical = historical_df.groupby('period')['pageviews'].sum().reset_index()
+                notes_historical = notes_historical.sort_values('period')
+                
+                if not notes_historical.empty:
+                    fig_notes = px.line(
+                        notes_historical,
+                        x='period',
+                        y='pageviews',
+                        title=f'Histórico de Pageviews - {time_granularity.title()}',
+                        labels={
+                            'period': 'Fecha',
+                            'pageviews': 'Pageviews'
+                        },
+                        color_discrete_sequence=[media_config['color']]
+                    )
+                    
+                    fig_notes.update_layout(
+                        xaxis_title='Fecha',
+                        yaxis_title='Pageviews',
+                        hovermode='x unified'
+                    )
+                    
+                    # Agregar marcadores
+                    fig_notes.update_traces(
+                        mode='lines+markers',
+                        line=dict(width=3),
+                        marker=dict(size=6)
+                    )
+                    
+                    st.plotly_chart(fig_notes, use_container_width=True)
+                    
+                    # Métricas del período
+                    total_pageviews_period = notes_historical['pageviews'].sum()
+                    avg_pageviews_period = notes_historical['pageviews'].mean()
+                    
+                    col_met1, col_met2, col_met3 = st.columns(3)
+                    with col_met1:
+                        st.metric("📊 Total Pageviews", f"{total_pageviews_period:,.0f}")
+                    with col_met2:
+                        st.metric("📈 Promedio por Período", f"{avg_pageviews_period:,.0f}")
+                    with col_met3:
+                        best_period = notes_historical.loc[notes_historical['pageviews'].idxmax(), 'period']
+                        st.metric("🏆 Mejor Período", best_period.strftime('%d/%m/%Y'))
+                else:
+                    st.info("No hay datos suficientes para mostrar el histórico de notas")
+                
+                st.markdown("---")
+                
+                # 2. GRÁFICO: Histórico por Autor
+                st.subheader("👤 Histórico por Autor")
+                st.caption("Pageviews acumuladas por autor en el tiempo")
+                
+                if 'autor' in historical_df.columns and historical_df['autor'].notna().any():
+                    # Selector de autor
+                    available_authors = sorted(historical_df['autor'].dropna().unique())
+                    selected_author = st.selectbox(
+                        "Seleccionar autor:",
+                        available_authors,
+                        key="selected_author_historical_ole"
+                    )
+                    
+                    # Filtrar datos por autor seleccionado
+                    author_data = historical_df[historical_df['autor'] == selected_author]
+                    author_historical = author_data.groupby('period')['pageviews'].sum().reset_index()
+                    author_historical = author_historical.sort_values('period')
+                    
+                    if not author_historical.empty:
+                        fig_author = px.line(
+                            author_historical,
+                            x='period',
+                            y='pageviews',
+                            title=f'Histórico de Pageviews - {selected_author}',
+                            labels={
+                                'period': 'Fecha',
+                                'pageviews': 'Pageviews'
+                            },
+                            color_discrete_sequence=['#ff6b35']
+                        )
+                        
+                        fig_author.update_layout(
+                            xaxis_title='Fecha',
+                            yaxis_title='Pageviews',
+                            hovermode='x unified'
+                        )
+                        
+                        # Agregar marcadores
+                        fig_author.update_traces(
+                            mode='lines+markers',
+                            line=dict(width=3),
+                            marker=dict(size=6)
+                        )
+                        
+                        st.plotly_chart(fig_author, use_container_width=True)
+                        
+                        # Métricas del autor
+                        author_total = author_historical['pageviews'].sum()
+                        author_avg = author_historical['pageviews'].mean()
+                        author_articles = len(author_data['url_normalized'].unique())
+                        
+                        col_auth1, col_auth2, col_auth3 = st.columns(3)
+                        with col_auth1:
+                            st.metric("📊 Total Pageviews", f"{author_total:,.0f}")
+                        with col_auth2:
+                            st.metric("📈 Promedio por Período", f"{author_avg:,.0f}")
+                        with col_auth3:
+                            st.metric("📝 Artículos", f"{author_articles:,}")
+                        
+                        # Comparación con el total
+                        if total_pageviews_period > 0:
+                            author_percentage = (author_total / total_pageviews_period) * 100
+                            st.info(f"📊 **{selected_author}** representa el **{author_percentage:.1f}%** del tráfico total en este período")
+                    else:
+                        st.warning(f"No hay datos históricos para {selected_author}")
+                else:
+                    st.info("No hay información de autores disponible para mostrar el histórico por autor")
+            
+            else:
+                st.error("❌ No se pudieron cargar los datos históricos")
     
     elif ga4_df is not None and not ga4_df.empty:
         # Solo datos de GA4

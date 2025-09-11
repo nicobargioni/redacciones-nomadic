@@ -1222,3 +1222,114 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
     except Exception as e:
         logger.error(f"Error obteniendo datos de crecimiento personalizado: {e}")
         return None
+
+@st.cache_data(ttl=300)
+def get_ga4_historical_data(property_id, credentials_file, start_date, end_date, time_granularity="day", sheets_urls=None):
+    """
+    Obtiene datos históricos de GA4 para análisis temporal, filtrando solo URLs del Sheet
+    
+    Args:
+        property_id: ID de la propiedad GA4
+        credentials_file: Archivo de credenciales
+        start_date: Fecha de inicio (datetime)
+        end_date: Fecha de fin (datetime)
+        time_granularity: "day", "week", "month"
+        sheets_urls: Lista de URLs normalizadas del Google Sheet para filtrar
+    
+    Returns:
+        DataFrame con datos históricos por fecha y página
+    """
+    from datetime import datetime, timedelta
+    import pandas as pd
+    
+    try:
+        # Determinar qué tipo de cuenta usar según la propiedad
+        if property_id == "255037852":  # OK Diario usa acceso_medios
+            account_type = "acceso_medios"
+        elif credentials_file == "damian_credentials_analytics_2025.json":  # Mundo Deportivo usa damian
+            account_type = "damian"
+        else:  # Clarín y Olé usan acceso
+            account_type = "acceso"
+        
+        # Usar siempre Streamlit secrets
+        if hasattr(st, 'secrets'):
+            secret_key = f'google_oauth_{account_type}'
+            if secret_key in st.secrets:
+                client = get_ga4_client_oauth(credentials_file, account_type)
+            else:
+                return None
+        else:
+            return None
+        
+        if not client:
+            return None
+        
+        # Configurar dimensiones según granularidad temporal
+        dimensions = [
+            {'name': 'pagePath'},
+            {'name': 'date'}
+        ]
+        
+        # Crear el request body
+        request_body = {
+            'dimensions': dimensions,
+            'metrics': [
+                {'name': 'screenPageViews'},
+                {'name': 'sessions'},
+                {'name': 'totalUsers'}
+            ],
+            'dateRanges': [{'startDate': start_date.strftime("%Y-%m-%d"), 
+                           'endDate': end_date.strftime("%Y-%m-%d")}],
+            'limit': 10000,
+            'orderBys': [{'dimension': {'dimensionName': 'date'}}]
+        }
+        
+        response = client.properties().runReport(
+            property=f"properties/{property_id}", 
+            body=request_body
+        ).execute()
+        
+        # Procesar respuesta
+        data = []
+        
+        if 'rows' in response:
+            for row in response['rows']:
+                page_path = row['dimensionValues'][0]['value']
+                date_str = row['dimensionValues'][1]['value']
+                
+                # Normalizar la URL de GA4 para comparar con el Sheet
+                normalized_ga4_url = normalize_url(f"domain.com{page_path}")
+                
+                # Solo incluir si la URL está en el Sheet (o si no hay filtro)
+                if not sheets_urls or any(normalized_ga4_url == sheet_url for sheet_url in sheets_urls):
+                    pageviews = int(row['metricValues'][0]['value'])
+                    sessions = int(row['metricValues'][1]['value'])
+                    users = int(row['metricValues'][2]['value'])
+                    
+                    data.append({
+                        'pagePath': page_path,
+                        'url_normalized': normalized_ga4_url,
+                        'date': datetime.strptime(date_str, '%Y%m%d'),
+                        'pageviews': pageviews,
+                        'sessions': sessions,
+                        'users': users
+                    })
+        
+        df = pd.DataFrame(data)
+        
+        if not df.empty:
+            # Aplicar granularidad temporal
+            if time_granularity == "week":
+                df['period'] = df['date'].dt.to_period('W').dt.start_time
+            elif time_granularity == "month":
+                df['period'] = df['date'].dt.to_period('M').dt.start_time
+            else:  # day
+                df['period'] = df['date']
+            
+            logger.info(f"Datos históricos obtenidos: {len(df)} filas, granularidad: {time_granularity}")
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos históricos de GA4: {e}")
+        return None
