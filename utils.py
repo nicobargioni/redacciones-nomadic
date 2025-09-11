@@ -322,7 +322,7 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
                 {'name': 'engagementRate'}
             ],
             'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
-            'limit': 10000
+            'limit': 100000
         }
         
         # Agregar filtro de país si se especifica
@@ -468,7 +468,7 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
                 {'name': 'engagementRate'}
             ],
             'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
-            'limit': 10000
+            'limit': 100000
         }
         
         # Ejecutar el reporte usando API v1beta
@@ -791,7 +791,7 @@ def get_ga4_pageviews_data(property_id, credentials_file, period="month"):
                 {'name': 'screenPageViews'}
             ],
             'dateRanges': [{'startDate': start_date, 'endDate': end_date}],
-            'limit': 10000
+            'limit': 100000
         }
         
         response = client.properties().runReport(
@@ -1054,7 +1054,7 @@ def get_ga4_growth_data(property_id, credentials_file, comparison_type="day", sh
                 ],
                 'dateRanges': [{'startDate': start_date.strftime("%Y-%m-%d"), 
                                'endDate': end_date.strftime("%Y-%m-%d")}],
-                'limit': 10000
+                'limit': 100000
             }
             
             response = client.properties().runReport(
@@ -1184,7 +1184,7 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
                 ],
                 'dateRanges': [{'startDate': start_date.strftime("%Y-%m-%d"), 
                                'endDate': end_date.strftime("%Y-%m-%d")}],
-                'limit': 10000
+                'limit': 100000
             }
             
             response = client.properties().runReport(
@@ -1330,7 +1330,7 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
             ],
             'dateRanges': [{'startDate': start_date.strftime("%Y-%m-%d"), 
                            'endDate': end_date.strftime("%Y-%m-%d")}],
-            'limit': 10000,
+            'limit': 1000000,
             'orderBys': [{'dimension': {'dimensionName': 'date'}}]
         }
         
