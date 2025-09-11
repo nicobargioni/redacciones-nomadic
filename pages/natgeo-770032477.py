@@ -314,7 +314,7 @@ else:
                 total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
         
         # Tabs para diferentes vistas
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 KPI", "📋 Datos", "📈 Análisis de Tráfico", "🔝 Top Páginas", "📉 Tendencias", "👤 Performance por Autor"])
+        tab1, tab2, tab3 = st.tabs(["📊 KPI", "📋 Datos", "🔝 Top Páginas"])
         
         with tab1:
             if country_filter != "Todos los países":
