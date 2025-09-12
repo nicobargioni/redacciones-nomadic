@@ -736,26 +736,33 @@ def get_monthly_pageviews_by_sheets(property_id, credentials_file, sheets_urls, 
         int: Total de pageviews del mes para URLs del Sheet
     """
     try:
-        from datetime import datetime, timedelta
-        today = datetime.now()
+        from datetime import datetime
         
-        # Mes actual
-        start_date = today.replace(day=1)
-        end_date = today
+        # Mes actual - obtener como strings para get_ga4_data
+        current_month_start = datetime.now().replace(day=1).strftime('%Y-%m-%d')
+        current_month_today = datetime.now().strftime('%Y-%m-%d')
         
-        # Obtener datos históricos del mes actual filtrados por Sheet
-        monthly_data = get_ga4_historical_data(
+        # Usar el mismo approach que funciona en el KPI
+        # Obtener datos de GA4 para el mes actual
+        ga4_monthly_df = get_ga4_data(
             property_id,
-            credentials_file, 
-            start_date,
-            end_date,
-            "day",
-            sheets_urls,
-            domain
+            credentials_file,
+            start_date=current_month_start,
+            end_date=current_month_today
         )
         
-        if monthly_data is not None and not monthly_data.empty:
-            return int(monthly_data['pageviews'].sum())
+        if ga4_monthly_df is not None and not ga4_monthly_df.empty and sheets_urls:
+            # Crear un DataFrame temporal con las URLs del Sheet para merge
+            temp_sheets_df = pd.DataFrame({'url_normalized': sheets_urls})
+            
+            # Usar merge_sheets_with_ga4 para obtener solo páginas del Sheet
+            merged_monthly = merge_sheets_with_ga4(temp_sheets_df, ga4_monthly_df, domain)
+            
+            if not merged_monthly.empty and 'screenPageViews' in merged_monthly.columns:
+                result = int(merged_monthly['screenPageViews'].sum())
+                return result
+            else:
+                return 0
         else:
             return 0
             
@@ -1390,9 +1397,16 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
                 # Comparar el path completo ya que sheets_urls ya está normalizado
                 match_found = False
                 if sheets_urls:
+                    # Normalizar el pagePath de GA4 para comparar correctamente
+                    normalized_page_path = normalize_url(f"{domain}{page_path}") if domain else page_path
+                    
                     for sheet_url in sheets_urls:
-                        # Verificar si el pagePath está contenido en la URL del Sheet
-                        if page_path in sheet_url or sheet_url.endswith(page_path.lstrip('/')):
+                        # Comparar URLs normalizadas exactamente o verificar si una contiene a la otra
+                        if (normalized_page_path == sheet_url or 
+                            page_path == sheet_url or 
+                            page_path in sheet_url or 
+                            sheet_url.endswith(page_path.lstrip('/')) or
+                            sheet_url == page_path.lstrip('/')):
                             match_found = True
                             break
                 else:
