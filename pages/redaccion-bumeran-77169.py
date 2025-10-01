@@ -649,7 +649,7 @@ else:
         st.markdown("---")
 
         # Mantener las tabs antiguas ocultas en un expander para no perder funcionalidad
-        with st.expander(" Ver Análisis Avanzados (Crecimiento e Histórico)"):
+        with st.expander("📊 Ver Análisis Avanzados (Crecimiento e Histórico)"):
             # Contenido de crecimiento
             st.subheader(" Crecimiento")
 

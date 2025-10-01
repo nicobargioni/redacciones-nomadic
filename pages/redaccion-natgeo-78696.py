@@ -650,9 +650,9 @@ else:
         st.markdown("---")
 
         # Mantener las tabs antiguas ocultas en un expander para no perder funcionalidad
-        with st.expander(" Ver Análisis Avanzados (Crecimiento e Histórico)"):
+        with st.expander("📊 Ver Análisis Avanzados (Crecimiento e Histórico)"):
             # Contenido de crecimiento
-            st.subheader(" Crecimiento")
+            st.subheader("📈 Crecimiento")
 
             # Selector de tipo de comparación
             col1, col2 = st.columns([1, 3])
@@ -815,13 +815,13 @@ else:
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric(" Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
+            st.metric("Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
         with col2:
-            st.metric(" Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
+            st.metric("Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
         with col3:
-            st.metric(" Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
+            st.metric("Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
         with col4:
-            st.metric(" Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
+            st.metric("Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
         
         st.markdown("---")
         st.subheader("Datos de Google Analytics 4")
