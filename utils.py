@@ -638,15 +638,25 @@ def filter_media_urls(df, domain):
     """
     if df is None or df.empty:
         return pd.DataFrame()
-    
-    # La columna 'url' ya está identificada en el Sheet
-    if 'url' in df.columns:
-        mask = df['url'].astype(str).str.contains(domain, case=False, na=False)
-        filtered_df = df[mask].copy()
-        logger.info(f"Filtradas {len(filtered_df)} URLs para {domain}")
-        return filtered_df
-    
-    return pd.DataFrame()
+
+    # Buscar columna de URL con nombres alternativos
+    url_column = None
+    possible_url_columns = ['url', 'URL', 'link', 'Link', 'enlace', 'Enlace']
+
+    for col_name in possible_url_columns:
+        if col_name in df.columns:
+            url_column = col_name
+            break
+
+    if url_column is None:
+        logger.warning(f"No se encontró columna de URL. Columnas disponibles: {df.columns.tolist()}")
+        return pd.DataFrame()
+
+    # Filtrar por dominio
+    mask = df[url_column].astype(str).str.contains(domain, case=False, na=False)
+    filtered_df = df[mask].copy()
+    logger.info(f"Filtradas {len(filtered_df)} URLs para {domain}")
+    return filtered_df
 
 def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
     """
@@ -654,14 +664,34 @@ def merge_sheets_with_ga4(sheets_df, ga4_df, domain):
     """
     if sheets_df is None or sheets_df.empty or ga4_df is None or ga4_df.empty:
         return pd.DataFrame()
-    
-    # Normalizar URLs en ambos DataFrames
-    if 'url' not in sheets_df.columns:
-        st.warning("No se encontró columna 'url' en los datos del Google Sheet")
+
+    # Hacer una copia para no modificar el original
+    sheets_df = sheets_df.copy()
+
+    # Buscar columna de URL con nombres alternativos
+    url_column = None
+    possible_url_columns = ['url', 'URL', 'link', 'Link', 'enlace', 'Enlace']
+
+    for col_name in possible_url_columns:
+        if col_name in sheets_df.columns:
+            url_column = col_name
+            logger.info(f"Columna de URL encontrada: {col_name}")
+            break
+
+    if url_column is None:
+        # Listar columnas disponibles para debugging
+        available_columns = ', '.join(sheets_df.columns.tolist())
+        st.warning(f"No se encontró columna de URL en el Google Sheet. Columnas disponibles: {available_columns}")
+        logger.warning(f"Columnas disponibles en sheet: {sheets_df.columns.tolist()}")
         return pd.DataFrame()
-    
-    # Crear columna de URL normalizada
-    sheets_df['url_normalized'] = sheets_df['url'].apply(normalize_url)
+
+    # Crear columna de URL normalizada usando la columna encontrada
+    try:
+        sheets_df['url_normalized'] = sheets_df[url_column].apply(normalize_url)
+        logger.info(f"URLs normalizadas creadas: {len(sheets_df)} filas")
+    except Exception as e:
+        logger.error(f"Error normalizando URLs del sheet: {e}")
+        return pd.DataFrame()
     
     # Normalizar pagePath de GA4 
     try:
