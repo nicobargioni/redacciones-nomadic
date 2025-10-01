@@ -76,7 +76,7 @@ if not check_login('ole', page_type='redaccion'):
 # Obtener configuración del medio
 media_config = create_media_config()['ole']
 
-st.title(f"{media_config['icon']} Dashboard de {media_config['name']}")
+st.title(f"{media_config['name']}")
 st.markdown("---")
 
 # Sidebar con opciones
@@ -289,7 +289,7 @@ else:
                 total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
 
         # ==================== SECCIÓN 1: GAUGE ====================
-        st.markdown("##  KPI Mensual - Olé")
+
 
         # Configuración del KPI
         monthly_goal = 3000000  # 3 millones de Page Views
@@ -649,50 +649,6 @@ else:
 
         st.markdown("---")
 
-        # ==================== SECCIÓN ADICIONAL: TABLA DE DATOS ====================
-        with st.expander(" Ver Tabla de Datos Completa"):
-            st.markdown("### Datos Combinados (Sheet + GA4)")
-
-            # Búsqueda
-            search = st.text_input(" Buscar:", "", key="search_table_data")
-            display_df = merged_df.copy()
-
-            if search:
-                mask = display_df.astype(str).apply(lambda x: x.str.contains(search, case=False, na=False)).any(axis=1)
-                display_df = display_df[mask]
-
-            # Seleccionar solo las columnas específicas
-            columns_to_show = ['titulo', 'url', 'datePub', 'autor', 'screenPageViews']
-            available_columns = [col for col in columns_to_show if col in display_df.columns]
-
-            if available_columns:
-                display_filtered = display_df[available_columns].copy()
-
-                # Renombrar columnas para mejor presentación
-                column_names = {
-                    'titulo': 'Título',
-                    'url': 'URL',
-                    'datePub': 'Fecha de Publicación',
-                    'autor': 'Autor',
-                    'screenPageViews': 'Page Views'
-                }
-                display_filtered = display_filtered.rename(columns=column_names)
-
-                # Mostrar DataFrame filtrado
-                st.dataframe(display_filtered, use_container_width=True, height=500)
-            else:
-                st.warning("No se encontraron las columnas requeridas en los datos")
-
-            # Descarga
-            csv = display_df.to_csv(index=False)
-            st.download_button(
-                label=" Descargar datos",
-                data=csv,
-                file_name=f"ole_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                key="download_csv_data"
-            )
-
         # Mantener las tabs antiguas ocultas en un expander para no perder funcionalidad
         with st.expander(" Ver Análisis Avanzados (Crecimiento e Histórico)"):
             # Contenido de crecimiento
@@ -847,31 +803,6 @@ else:
                     }
                 )
                 st.plotly_chart(fig_comparison, use_container_width=True)
-
-                # Gráfico de crecimiento porcentual
-                growth_percentages = [growth_data['data'][m]['growth_percentage'] for m in metrics]
-                colors = ['green' if x >= 0 else '#9b51e0' for x in growth_percentages]
-
-                fig_growth = go.Figure(data=[
-                    go.Bar(
-                        x=metric_names,
-                        y=growth_percentages,
-                        marker_color=colors,
-                        text=[f"{x:+.1f}%" for x in growth_percentages],
-                        textposition='auto',
-                    )
-                ])
-
-                fig_growth.update_layout(
-                    title=f'Crecimiento Porcentual: {growth_data["period_name"]}',
-                    yaxis_title='Crecimiento (%)',
-                    showlegend=False
-                )
-
-                # Agregar línea en y=0
-                fig_growth.add_hline(y=0, line_dash="dash", line_color="gray")
-
-                st.plotly_chart(fig_growth, use_container_width=True)
 
             else:
                 st.error(" No se pudieron obtener los datos de crecimiento")
