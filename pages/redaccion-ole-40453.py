@@ -35,36 +35,49 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
-html, body, [class*="css"], * {
+html, body, [class*="css"] {
     font-family: 'Montserrat', sans-serif !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif !important;
     font-weight: 600;
 }
 
 .stMetric label {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif !important;
     font-weight: 500;
 }
 
 .stMetric [data-testid="stMetricValue"] {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif !important;
     font-weight: 600;
 }
 
 div[data-testid="stSidebarContent"] {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+div[data-testid="stSidebarContent"] * {
+    font-family: 'Montserrat', sans-serif !important;
 }
 
 .stButton button {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif !important;
     font-weight: 500;
 }
 
 .stSelectbox, .stMultiSelect, .stSlider, .stDateInput {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+p, span, div, label, input, textarea {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+/* NO aplicar a íconos de Material Design */
+.material-icons, [class*="material-symbols"] {
+    font-family: 'Material Symbols Outlined' !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -448,7 +461,6 @@ else:
             ))
 
             fig_progression.update_layout(
-                title='Progresión Acumulada de Page Views del Mes',
                 xaxis_title='Fecha',
                 yaxis_title='Page Views Acumulados',
                 hovermode='x unified',
@@ -504,6 +516,139 @@ else:
                 use_container_width=True,
                 hide_index=True
             )
+
+            # ==================== SUBSECCIÓN: PERFORMANCE INDIVIDUAL POR AUTOR ====================
+            st.markdown("###  Performance Individual por Autor y Fecha")
+
+            # Filtros
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                # Selector de autor
+                authors_list = sorted(merged_df['autor'].dropna().unique())
+                selected_author = st.selectbox(
+                    "Seleccionar Autor:",
+                    options=authors_list,
+                    key="individual_author_selector_ole"
+                )
+
+            with col2:
+                # Selector de fecha inicial
+                if 'datePub' in merged_df.columns:
+                    min_date = pd.to_datetime(merged_df['datePub']).min().date()
+                    max_date = pd.to_datetime(merged_df['datePub']).max().date()
+                else:
+                    min_date = datetime.now().date() - timedelta(days=30)
+                    max_date = datetime.now().date()
+
+                start_date = st.date_input(
+                    "Fecha Inicial:",
+                    value=min_date,
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="author_start_date_ole"
+                )
+
+            with col3:
+                # Selector de fecha final
+                end_date = st.date_input(
+                    "Fecha Final:",
+                    value=max_date,
+                    min_value=min_date,
+                    max_value=max_date,
+                    key="author_end_date_ole"
+                )
+
+            # Filtrar datos por autor y fecha
+            author_data = merged_df[merged_df['autor'] == selected_author].copy()
+
+            if 'datePub' in author_data.columns:
+                author_data['datePub'] = pd.to_datetime(author_data['datePub'])
+                author_data = author_data[
+                    (author_data['datePub'].dt.date >= start_date) &
+                    (author_data['datePub'].dt.date <= end_date)
+                ]
+
+            if not author_data.empty:
+                # Métricas del autor en el período
+                total_articles = len(author_data)
+                total_views = author_data['screenPageViews'].sum() if 'screenPageViews' in author_data.columns else 0
+                avg_views = total_views / total_articles if total_articles > 0 else 0
+
+                # Mostrar métricas
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Artículos Publicados", f"{total_articles:,}")
+                with col2:
+                    st.metric("Total Page Views", f"{total_views:,.0f}")
+                with col3:
+                    st.metric("Promedio por Artículo", f"{avg_views:,.0f}")
+
+                # Agrupar por fecha si existe la columna
+                if 'datePub' in author_data.columns and 'screenPageViews' in author_data.columns:
+                    daily_performance = author_data.groupby(author_data['datePub'].dt.date).agg({
+                        'screenPageViews': 'sum',
+                        'url_normalized': 'count'
+                    }).reset_index()
+                    daily_performance.columns = ['Fecha', 'Page Views', 'Artículos']
+                    daily_performance = daily_performance.sort_values('Fecha')
+
+                    # Gráfico de línea temporal
+                    fig_author_time = go.Figure()
+
+                    fig_author_time.add_trace(go.Scatter(
+                        x=daily_performance['Fecha'],
+                        y=daily_performance['Page Views'],
+                        mode='lines+markers',
+                        name='Page Views',
+                        line=dict(color=media_config['color'], width=2),
+                        marker=dict(size=8),
+                        hovertemplate='<b>%{x}</b><br>Page Views: %{y:,.0f}<extra></extra>'
+                    ))
+
+                    fig_author_time.update_layout(
+                        title=f'Performance Diaria de {selected_author}',
+                        xaxis_title='Fecha',
+                        yaxis_title='Page Views',
+                        hovermode='x unified',
+                        height=400
+                    )
+
+                    st.plotly_chart(fig_author_time, use_container_width=True)
+
+                    # Tabla detallada
+                    st.markdown("#### Detalle por Día")
+                    st.dataframe(
+                        daily_performance.style.format({
+                            'Page Views': '{:,.0f}'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+                # Tabla de artículos individuales
+                st.markdown("#### Artículos del Autor en el Período")
+                display_cols = ['datePub', 'titulo', 'screenPageViews'] if 'titulo' in author_data.columns else ['datePub', 'url_normalized', 'screenPageViews']
+                author_articles = author_data[display_cols].sort_values('screenPageViews', ascending=False)
+
+                # Renombrar columnas
+                rename_dict = {
+                    'datePub': 'Fecha',
+                    'titulo': 'Título',
+                    'url_normalized': 'URL',
+                    'screenPageViews': 'Page Views'
+                }
+                author_articles = author_articles.rename(columns={k: v for k, v in rename_dict.items() if k in author_articles.columns})
+
+                st.dataframe(
+                    author_articles.style.format({
+                        'Page Views': '{:,.0f}'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.warning(f"No hay datos para {selected_author} en el período seleccionado")
         else:
             st.info("No hay datos de autores disponibles")
 
