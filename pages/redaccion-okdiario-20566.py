@@ -35,8 +35,8 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Montserrat', sans-serif;
+html, body, [class*="css"], * {
+    font-family: 'Montserrat', sans-serif !important;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -331,13 +331,9 @@ else:
             title = {'text': "Progreso hacia Objetivo Mensual (Artículos del Sheet)"},
             delta = {'reference': monthly_goal, 'valueformat': ',.0f'},
             gauge = {
-                'axis': {'range': [None, monthly_goal * 1.2]},
+                'axis': {'range': [None, monthly_goal]},
                 'bar': {'color': media_config['color']},
-                'steps': [
-                    {'range': [0, monthly_goal * 0.5], 'color': "lightgray"},
-                    {'range': [monthly_goal * 0.5, monthly_goal * 0.8], 'color': "yellow"},
-                    {'range': [monthly_goal * 0.8, monthly_goal], 'color': "lightgreen"}
-                ],
+                'steps': [],
                 'threshold': {
                     'line': {'color': "#9b51e0", 'width': 4},
                     'thickness': 0.75,
@@ -348,7 +344,7 @@ else:
 
         fig.update_layout(
             height=400,
-            font={'color': "darkblue", 'family': "Arial"}
+            font={'color': "darkblue", 'family': "Montserrat"}
         )
 
         st.plotly_chart(fig, use_container_width=True)

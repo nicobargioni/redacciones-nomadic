@@ -928,14 +928,14 @@ def create_media_config():
                     'domain': 'okdiario.com',
                     'property_id': ga_config.get('okdiario_property_id', '255037852'),
                     'icon': '🗞️',
-                    'color': '#e53935'
+                    'color': '#9b51e0'
                 },
                 'elespanol': {
                     'name': 'El Español',
                     'domain': 'elespanol.com',
                     'property_id': ga_config.get('elespanol_property_id', '000000000'),
                     'icon': '🇪🇸',
-                    'color': '#ff6b00'
+                    'color': '#9b51e0'
                 },
                 'natgeo': {
                     'name': 'National Geographic',
@@ -997,14 +997,14 @@ def create_media_config():
             'domain': 'okdiario.com',
             'property_id': '255037852',
             'icon': '🗞️',
-            'color': '#e53935'
+            'color': '#9b51e0'
         },
         'elespanol': {
             'name': 'El Español',
             'domain': 'elespanol.com',
             'property_id': '000000000',
             'icon': '🇪🇸',
-            'color': '#ff6b00'
+            'color': '#9b51e0'
         },
         'natgeo': {
             'name': 'National Geographic',
