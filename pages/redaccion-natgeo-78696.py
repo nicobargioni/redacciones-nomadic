@@ -339,7 +339,7 @@ else:
                     {'range': [monthly_goal * 0.8, monthly_goal], 'color': "lightgreen"}
                 ],
                 'threshold': {
-                    'line': {'color': "red", 'width': 4},
+                    'line': {'color': "#9b51e0", 'width': 4},
                     'thickness': 0.75,
                     'value': monthly_goal
                 }
@@ -448,7 +448,7 @@ else:
                 y=daily_progression['goal_line'],
                 mode='lines',
                 name='Objetivo Lineal',
-                line=dict(color='red', width=2, dash='dash')
+                line=dict(color='#9b51e0', width=2, dash='dash')
             ))
 
             fig_progression.update_layout(
@@ -854,7 +854,7 @@ else:
 
                 # Gráfico de crecimiento porcentual
                 growth_percentages = [growth_data['data'][m]['growth_percentage'] for m in metrics]
-                colors = ['green' if x >= 0 else 'red' for x in growth_percentages]
+                colors = ['green' if x >= 0 else '#9b51e0' for x in growth_percentages]
 
                 fig_growth = go.Figure(data=[
                     go.Bar(
