@@ -30,6 +30,45 @@ st.set_page_config(
     layout="wide"
 )
 
+# Aplicar fuente Montserrat
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Montserrat', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+}
+
+.stMetric label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+}
+
+.stMetric [data-testid="stMetricValue"] {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+}
+
+div[data-testid="stSidebarContent"] {
+    font-family: 'Montserrat', sans-serif;
+}
+
+.stButton button {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+}
+
+.stSelectbox, .stMultiSelect, .stSlider, .stDateInput {
+    font-family: 'Montserrat', sans-serif;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Verificar login antes de mostrar contenido
 if not check_login('natgeo', page_type='redaccion'):
     st.stop()
