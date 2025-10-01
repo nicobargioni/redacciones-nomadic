@@ -1,17 +1,13 @@
 import re
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import pandas as pd
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
 import streamlit as st
 from datetime import datetime, timedelta
 import logging
-import json
 import base64
 import pickle
-import os
-import hashlib
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +218,7 @@ def normalize_url(url):
     return url_clean
 
 
-def get_ga4_client_oauth(credentials_file, account_type="acceso"):
+def get_ga4_client_oauth(credentials_file=None, account_type="acceso"):
     """
     Crea un cliente de Google Analytics Data API v1beta usando OAuth2
     """
@@ -1365,7 +1361,6 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
     Returns:
         DataFrame con datos históricos por fecha y página
     """
-    from datetime import datetime, timedelta
     import pandas as pd
     
     try:
