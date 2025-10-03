@@ -535,8 +535,8 @@ else:
             with col2:
                 # Selector de fecha inicial
                 if 'datePub' in merged_df.columns:
-                    min_date = pd.to_datetime(merged_df['datePub']).min().date()
-                    max_date = pd.to_datetime(merged_df['datePub']).max().date()
+                    min_date = pd.to_datetime(merged_df['datePub'], format='%d/%m/%Y', errors='coerce').min().date()
+                    max_date = pd.to_datetime(merged_df['datePub'], format='%d/%m/%Y', errors='coerce').max().date()
                 else:
                     min_date = datetime.now().date() - timedelta(days=30)
                     max_date = datetime.now().date()
