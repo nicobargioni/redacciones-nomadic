@@ -562,7 +562,7 @@ else:
             author_data = merged_df[merged_df['autor'] == selected_author].copy()
 
             if 'datePub' in author_data.columns:
-                author_data['datePub'] = pd.to_datetime(author_data['datePub'])
+                author_data['datePub'] = pd.to_datetime(author_data['datePub'], format='%d/%m/%Y', errors='coerce')
                 author_data = author_data[
                     (author_data['datePub'].dt.date >= start_date) &
                     (author_data['datePub'].dt.date <= end_date)
