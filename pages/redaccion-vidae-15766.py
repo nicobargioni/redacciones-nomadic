@@ -187,7 +187,7 @@ else:
     
     # Mergear datos si ambos están disponibles
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
-        merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_df, media_config[\'domain\'])
+        merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_df, media_config['domain'])
         
         # Obtener URLs del Sheet filtradas para las métricas
         sheets_urls_for_metrics = None
