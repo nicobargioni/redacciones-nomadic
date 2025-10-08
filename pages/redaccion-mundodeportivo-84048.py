@@ -178,52 +178,6 @@ if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
     - Credenciales incorrectas o sin permisos para la propiedad {media_config['property_id']}
     """)
 else:
-    # Agregar filtro por autor si hay datos
-    author_filter = None
-    if not sheets_filtered.empty and 'autor' in sheets_filtered.columns:
-        authors = sorted(sheets_filtered['autor'].dropna().unique())
-        author_filter = st.sidebar.multiselect(
-            " Filtrar por Autor:",
-            options=authors,
-            default=None,
-            key="author_filter_mundodeportivo"
-        )
-        
-        if author_filter:
-            sheets_filtered = sheets_filtered[sheets_filtered['autor'].isin(author_filter)]
-            st.sidebar.info(f" {len(sheets_filtered)} artículos seleccionados")
-    
-    # Agregar filtros por fuente y medio de GA4
-    source_filter = None
-    medium_filter = None
-    
-    if ga4_df is not None and not ga4_df.empty:
-        # Filtro por fuente (sessionSource)
-        if 'sessionSource' in ga4_df.columns:
-            sources = sorted(ga4_df['sessionSource'].dropna().unique())
-            if len(sources) > 0:
-                source_filter = st.sidebar.multiselect(
-                    " Filtrar por Fuente:",
-                    options=sources,
-                    default=None,
-                    key="source_filter_mundodeportivo",
-                    help="Fuente del tráfico (Google, Facebook, etc.)"
-                )
-        
-        # Filtro por medio (sessionMedium)
-        if 'sessionMedium' in ga4_df.columns:
-            mediums = sorted(ga4_df['sessionMedium'].dropna().unique())
-            if len(mediums) > 0:
-                medium_filter = st.sidebar.multiselect(
-                    " Filtrar por Medio:",
-                    options=mediums,
-                    default=None,
-                    key="medium_filter_mundodeportivo",
-                    help="Medio del tráfico (organic, cpc, referral, etc.)"
-                )
-    
-
-    
     # Métricas de datos cargados
     st.sidebar.metric("URLs en Sheet", len(sheets_filtered) if not sheets_filtered.empty else 0)
     if ga4_df is not None:
@@ -233,34 +187,7 @@ else:
     
     # Mergear datos si ambos están disponibles
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
-        # Aplicar filtros de fuente y medio a GA4 antes del merge
-        ga4_filtered = ga4_df.copy()
-        
-        # Agregar columna url_normalized a ga4_filtered ANTES de aplicar filtros
-        ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
-            lambda x: normalize_url(f"{media_config['domain']}{x}")
-        )
-        
-        if source_filter:
-            ga4_filtered = ga4_filtered[ga4_filtered['sessionSource'].isin(source_filter)]
-        
-        if medium_filter:
-            ga4_filtered = ga4_filtered[ga4_filtered['sessionMedium'].isin(medium_filter)]
-        
-        if not ga4_filtered.empty:
-            merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_filtered, media_config['domain'])
-            
-            # Mostrar información de filtros aplicados
-            if source_filter or medium_filter:
-                filter_info = []
-                if source_filter:
-                    filter_info.append(f"Fuentes: {len(source_filter)}")
-                if medium_filter:
-                    filter_info.append(f"Medios: {len(medium_filter)}")
-                st.sidebar.success(f" Filtros GA4: {', '.join(filter_info)}")
-        else:
-            st.warning(" Los filtros de fuente/medio no devolvieron datos de GA4")
-            merged_df = sheets_filtered  # Solo datos del sheet
+        merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_df, media_config[\'domain\'])
         
         # Obtener URLs del Sheet filtradas para las métricas
         sheets_urls_for_metrics = None
@@ -711,13 +638,37 @@ else:
 
         # ==================== SECCIÓN 5: COMPARATIVA DOMINIO VS SHEET ====================
         st.markdown("##  Comparativa: Dominio Completo vs URLs del Sheet")
+        st.caption(f"Período de análisis: {start_date_param} a {end_date_param}")
 
-        # Obtener datos del dominio completo (sin home)
-        pageviews_data = get_ga4_pageviews_data(
-            media_config['property_id'],
-            credentials_file,
-            period="month"
-        )
+        # Obtener datos del dominio completo (sin home) usando el período seleccionado
+        # Convertir el período al formato adecuado si es necesario
+        if start_date_param.endswith("daysAgo"):
+            days = int(start_date_param.replace("daysAgo", ""))
+            period_start = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        else:
+            period_start = start_date_param
+
+        if end_date_param == "today":
+            period_end = datetime.now().strftime('%Y-%m-%d')
+        else:
+            period_end = end_date_param
+
+        # Usar los datos de GA4 ya cargados para la comparativa
+        if ga4_df is not None and not ga4_df.empty:
+            # Calcular métricas del dominio completo desde ga4_df
+            domain_total_pv = ga4_df['screenPageViews'].sum()
+            # Filtrar home page si existe
+            ga4_no_home = ga4_df[~ga4_df['pagePath'].isin(['/', '/index.html', '/home'])]
+            domain_no_home_pv = ga4_no_home['screenPageViews'].sum()
+            domain_pages = ga4_no_home['pagePath'].nunique()
+
+            pageviews_data = {
+                'total_pageviews': domain_total_pv,
+                'non_home_pageviews': domain_no_home_pv,
+                'non_home_pages': domain_pages
+            }
+        else:
+            pageviews_data = None
 
         if pageviews_data and 'screenPageViews' in merged_df.columns:
             # Métricas comparativas
@@ -794,163 +745,161 @@ else:
 
         st.markdown("---")
 
-        # Mantener las tabs antiguas ocultas en un expander para no perder funcionalidad
-        with st.expander("📊 Ver Análisis Avanzados (Crecimiento e Histórico)"):
-            # Contenido de crecimiento
-            st.subheader("📈 Crecimiento")
+        # ==================== SECCIÓN 6: CRECIMIENTO ====================
+        st.markdown("##  Análisis de Crecimiento")
 
-            # Selector de tipo de comparación
-            col1, col2 = st.columns([1, 3])
+        # Selector de tipo de comparación
+        col1, col2 = st.columns([1, 3])
+
+        with col1:
+            comparison_type = st.selectbox(
+                "Tipo de comparación:",
+                ["day", "week", "month", "90days", "custom"],
+                format_func=lambda x: {
+                    "day": "Día vs Día anterior",
+                    "week": "Semana vs Semana anterior",
+                    "month": "Mes vs Mes anterior",
+                    "90days": "90 días vs 90 días anteriores",
+                    "custom": "Período personalizado"
+                }[x],
+                key="comparison_type_redac_mundodeportivo"
+            )
+
+        # Obtener URLs normalizadas del Sheet para filtrar
+        sheets_urls_growth = None
+        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
+            sheets_urls_growth = sheets_filtered['url_normalized'].dropna().unique().tolist()
+
+        # Si es personalizado, mostrar selectores de fecha
+        if comparison_type == "custom":
+            st.markdown("**Período Actual:**")
+            col1, col2 = st.columns(2)
+            with col1:
+                current_start = st.date_input(
+                    "Inicio actual:",
+                    value=datetime.now() - timedelta(days=7),
+                    key="growth_current_start_redac_mundodeportivo"
+                )
+            with col2:
+                current_end = st.date_input(
+                    "Fin actual:",
+                    value=datetime.now(),
+                    key="growth_current_end_redac_mundodeportivo"
+                )
+
+            st.markdown("**Período de Comparación:**")
+            col3, col4 = st.columns(2)
+            with col3:
+                previous_start = st.date_input(
+                    "Inicio comparación:",
+                    value=datetime.now() - timedelta(days=14),
+                    key="growth_previous_start_redac_mundodeportivo"
+                )
+            with col4:
+                previous_end = st.date_input(
+                    "Fin comparación:",
+                    value=datetime.now() - timedelta(days=8),
+                    key="growth_previous_end_redac_mundodeportivo"
+                )
+
+            # Obtener datos personalizados
+            growth_data = get_ga4_growth_data_custom(
+                media_config['property_id'],
+                credentials_file,
+                current_start,
+                current_end,
+                previous_start,
+                previous_end,
+                sheets_urls_growth
+            )
+        else:
+            # Obtener datos predefinidos
+            growth_data = get_ga4_growth_data(
+                media_config['property_id'],
+                credentials_file,
+                comparison_type,
+                sheets_urls_growth
+            )
+
+        if growth_data:
+            st.success(f" Comparando: {growth_data['period_name']}")
+
+            # Mostrar períodos
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**Período Actual:** {growth_data['current_period']}")
+            with col2:
+                st.info(f"**Período Anterior:** {growth_data['previous_period']}")
+
+            st.markdown("---")
+
+            # Métricas de crecimiento
+            col1, col2, col3 = st.columns(3)
 
             with col1:
-                comparison_type = st.selectbox(
-                    "Tipo de comparación:",
-                    ["day", "week", "month", "90days", "custom"],
-                    format_func=lambda x: {
-                        "day": "Día vs Día anterior",
-                        "week": "Semana vs Semana anterior",
-                        "month": "Mes vs Mes anterior",
-                        "90days": "90 días vs 90 días anteriores",
-                        "custom": "Período personalizado"
-                    }[x],
-                    key="comparison_type_redac_mundodeportivo"
+                pv_data = growth_data['data']['pageviews']
+                growth_pct = pv_data['growth_percentage']
+                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                st.metric(
+                    " Page Views",
+                    f"{pv_data['current']:,}",
+                    delta=format_growth_percentage(growth_pct, pv_data['growth_absolute']),
+                    delta_color=delta_color
                 )
 
-            # Obtener URLs normalizadas del Sheet para filtrar
-            sheets_urls_growth = None
-            if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
-                sheets_urls_growth = sheets_filtered['url_normalized'].dropna().unique().tolist()
-
-            # Si es personalizado, mostrar selectores de fecha
-            if comparison_type == "custom":
-                st.markdown("**Período Actual:**")
-                col1, col2 = st.columns(2)
-                with col1:
-                    current_start = st.date_input(
-                        "Inicio actual:",
-                        value=datetime.now() - timedelta(days=7),
-                        key="growth_current_start_redac_mundodeportivo"
-                    )
-                with col2:
-                    current_end = st.date_input(
-                        "Fin actual:",
-                        value=datetime.now(),
-                        key="growth_current_end_redac_mundodeportivo"
-                    )
-
-                st.markdown("**Período de Comparación:**")
-                col3, col4 = st.columns(2)
-                with col3:
-                    previous_start = st.date_input(
-                        "Inicio comparación:",
-                        value=datetime.now() - timedelta(days=14),
-                        key="growth_previous_start_redac_mundodeportivo"
-                    )
-                with col4:
-                    previous_end = st.date_input(
-                        "Fin comparación:",
-                        value=datetime.now() - timedelta(days=8),
-                        key="growth_previous_end_redac_mundodeportivo"
-                    )
-
-                # Obtener datos personalizados
-                growth_data = get_ga4_growth_data_custom(
-                    media_config['property_id'],
-                    credentials_file,
-                    current_start,
-                    current_end,
-                    previous_start,
-                    previous_end,
-                    sheets_urls_growth
-                )
-            else:
-                # Obtener datos predefinidos
-                growth_data = get_ga4_growth_data(
-                    media_config['property_id'],
-                    credentials_file,
-                    comparison_type,
-                    sheets_urls_growth
+            with col2:
+                sessions_data = growth_data['data']['sessions']
+                growth_pct = sessions_data['growth_percentage']
+                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                st.metric(
+                    " Sesiones",
+                    f"{sessions_data['current']:,}",
+                    delta=format_growth_percentage(growth_pct, sessions_data['growth_absolute']),
+                    delta_color=delta_color
                 )
 
-            if growth_data:
-                st.success(f" Comparando: {growth_data['period_name']}")
-
-                # Mostrar períodos
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.info(f"**Período Actual:** {growth_data['current_period']}")
-                with col2:
-                    st.info(f"**Período Anterior:** {growth_data['previous_period']}")
-
-                st.markdown("---")
-
-                # Métricas de crecimiento
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-                    pv_data = growth_data['data']['pageviews']
-                    growth_pct = pv_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
-                    st.metric(
-                        " Page Views",
-                        f"{pv_data['current']:,}",
-                        delta=format_growth_percentage(growth_pct, pv_data['growth_absolute']),
-                        delta_color=delta_color
-                    )
-
-                with col2:
-                    sessions_data = growth_data['data']['sessions']
-                    growth_pct = sessions_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
-                    st.metric(
-                        " Sesiones",
-                        f"{sessions_data['current']:,}",
-                        delta=format_growth_percentage(growth_pct, sessions_data['growth_absolute']),
-                        delta_color=delta_color
-                    )
-
-                with col3:
-                    users_data = growth_data['data']['users']
-                    growth_pct = users_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
-                    st.metric(
-                        " Usuarios",
-                        f"{users_data['current']:,}",
-                        delta=format_growth_percentage(growth_pct, users_data['growth_absolute']),
-                        delta_color=delta_color
-                    )
-
-                st.markdown("---")
-
-                # Gráfico de comparación
-                metrics = ['pageviews', 'sessions', 'users']
-                metric_names = ['Page Views', 'Sesiones', 'Usuarios']
-                current_values = [growth_data['data'][m]['current'] for m in metrics]
-                previous_values = [growth_data['data'][m]['previous'] for m in metrics]
-
-                # Crear DataFrame para el gráfico
-                chart_data = pd.DataFrame({
-                    'Métrica': metric_names + metric_names,
-                    'Valor': current_values + previous_values,
-                    'Período': ['Actual'] * 3 + ['Anterior'] * 3
-                })
-
-                fig_comparison = px.bar(
-                    chart_data,
-                    x='Métrica',
-                    y='Valor',
-                    color='Período',
-                    barmode='group',
-                    title=f'Comparación de Métricas: {growth_data["period_name"]}',
-                    color_discrete_map={
-                        'Actual': media_config['color'],
-                        'Anterior': '#cccccc'
-                    }
+            with col3:
+                users_data = growth_data['data']['users']
+                growth_pct = users_data['growth_percentage']
+                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                st.metric(
+                    " Usuarios",
+                    f"{users_data['current']:,}",
+                    delta=format_growth_percentage(growth_pct, users_data['growth_absolute']),
+                    delta_color=delta_color
                 )
-                st.plotly_chart(fig_comparison, use_container_width=True)
 
-            else:
-                st.error(" No se pudieron obtener los datos de crecimiento")
+            st.markdown("---")
+
+            # Gráfico de comparación
+            metrics = ['pageviews', 'sessions', 'users']
+            metric_names = ['Page Views', 'Sesiones', 'Usuarios']
+            current_values = [growth_data['data'][m]['current'] for m in metrics]
+            previous_values = [growth_data['data'][m]['previous'] for m in metrics]
+
+            # Crear DataFrame para el gráfico
+            chart_data = pd.DataFrame({
+                'Métrica': metric_names + metric_names,
+                'Valor': current_values + previous_values,
+                'Período': ['Actual'] * 3 + ['Anterior'] * 3
+            })
+
+            fig_comparison = px.bar(
+                chart_data,
+                x='Métrica',
+                y='Valor',
+                color='Período',
+                barmode='group',
+                title=f'Comparación de Métricas: {growth_data["period_name"]}',
+                color_discrete_map={
+                    'Actual': media_config['color'],
+                    'Anterior': '#cccccc'
+                }
+            )
+            st.plotly_chart(fig_comparison, use_container_width=True)
+
+        else:
+            st.error(" No se pudieron obtener los datos de crecimiento")
 
     elif ga4_df is not None and not ga4_df.empty:
         # Solo datos de GA4

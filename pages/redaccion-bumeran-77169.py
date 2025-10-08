@@ -178,52 +178,6 @@ if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
     - Credenciales incorrectas o sin permisos para la propiedad {media_config['property_id']}
     """)
 else:
-    # Agregar filtro por autor si hay datos
-    author_filter = None
-    if not sheets_filtered.empty and 'autor' in sheets_filtered.columns:
-        authors = sorted(sheets_filtered['autor'].dropna().unique())
-        author_filter = st.sidebar.multiselect(
-            " Filtrar por Autor:",
-            options=authors,
-            default=None,
-            key="author_filter_bumeran"
-        )
-        
-        if author_filter:
-            sheets_filtered = sheets_filtered[sheets_filtered['autor'].isin(author_filter)]
-            st.sidebar.info(f" {len(sheets_filtered)} artículos seleccionados")
-    
-    # Agregar filtros por fuente y medio de GA4
-    source_filter = None
-    medium_filter = None
-    
-    if ga4_df is not None and not ga4_df.empty:
-        # Filtro por fuente (sessionSource)
-        if 'sessionSource' in ga4_df.columns:
-            sources = sorted(ga4_df['sessionSource'].dropna().unique())
-            if len(sources) > 0:
-                source_filter = st.sidebar.multiselect(
-                    " Filtrar por Fuente:",
-                    options=sources,
-                    default=None,
-                    key="source_filter_bumeran",
-                    help="Fuente del tráfico (Google, Facebook, etc.)"
-                )
-        
-        # Filtro por medio (sessionMedium)
-        if 'sessionMedium' in ga4_df.columns:
-            mediums = sorted(ga4_df['sessionMedium'].dropna().unique())
-            if len(mediums) > 0:
-                medium_filter = st.sidebar.multiselect(
-                    " Filtrar por Medio:",
-                    options=mediums,
-                    default=None,
-                    key="medium_filter_bumeran",
-                    help="Medio del tráfico (organic, cpc, referral, etc.)"
-                )
-    
-
-    
     # Métricas de datos cargados
     st.sidebar.metric("URLs en Sheet", len(sheets_filtered) if not sheets_filtered.empty else 0)
     if ga4_df is not None:
@@ -233,34 +187,7 @@ else:
     
     # Mergear datos si ambos están disponibles
     if not sheets_filtered.empty and ga4_df is not None and not ga4_df.empty:
-        # Aplicar filtros de fuente y medio a GA4 antes del merge
-        ga4_filtered = ga4_df.copy()
-        
-        # Agregar columna url_normalized a ga4_filtered ANTES de aplicar filtros
-        ga4_filtered['url_normalized'] = ga4_filtered['pagePath'].apply(
-            lambda x: normalize_url(f"{media_config['domain']}{x}")
-        )
-        
-        if source_filter:
-            ga4_filtered = ga4_filtered[ga4_filtered['sessionSource'].isin(source_filter)]
-        
-        if medium_filter:
-            ga4_filtered = ga4_filtered[ga4_filtered['sessionMedium'].isin(medium_filter)]
-        
-        if not ga4_filtered.empty:
-            merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_filtered, media_config['domain'])
-            
-            # Mostrar información de filtros aplicados
-            if source_filter or medium_filter:
-                filter_info = []
-                if source_filter:
-                    filter_info.append(f"Fuentes: {len(source_filter)}")
-                if medium_filter:
-                    filter_info.append(f"Medios: {len(medium_filter)}")
-                st.sidebar.success(f" Filtros GA4: {', '.join(filter_info)}")
-        else:
-            st.warning(" Los filtros de fuente/medio no devolvieron datos de GA4")
-            merged_df = sheets_filtered  # Solo datos del sheet
+        merged_df = merge_sheets_with_ga4(sheets_filtered, ga4_df, media_config[\'domain\'])
         
         # Obtener URLs del Sheet filtradas para las métricas
         sheets_urls_for_metrics = None
@@ -710,13 +637,37 @@ else:
 
         # ==================== SECCIÓN 5: COMPARATIVA DOMINIO VS SHEET ====================
         st.markdown("##  Comparativa: Dominio Completo vs URLs del Sheet")
+        st.caption(f"Período de análisis: {start_date_param} a {end_date_param}")
 
-        # Obtener datos del dominio completo (sin home)
-        pageviews_data = get_ga4_pageviews_data(
-            media_config['property_id'],
-            credentials_file,
-            period="month"
-        )
+        # Obtener datos del dominio completo (sin home) usando el período seleccionado
+        # Convertir el período al formato adecuado si es necesario
+        if start_date_param.endswith("daysAgo"):
+            days = int(start_date_param.replace("daysAgo", ""))
+            period_start = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        else:
+            period_start = start_date_param
+
+        if end_date_param == "today":
+            period_end = datetime.now().strftime('%Y-%m-%d')
+        else:
+            period_end = end_date_param
+
+        # Usar los datos de GA4 ya cargados para la comparativa
+        if ga4_df is not None and not ga4_df.empty:
+            # Calcular métricas del dominio completo desde ga4_df
+            domain_total_pv = ga4_df['screenPageViews'].sum()
+            # Filtrar home page si existe
+            ga4_no_home = ga4_df[~ga4_df['pagePath'].isin(['/', '/index.html', '/home'])]
+            domain_no_home_pv = ga4_no_home['screenPageViews'].sum()
+            domain_pages = ga4_no_home['pagePath'].nunique()
+
+            pageviews_data = {
+                'total_pageviews': domain_total_pv,
+                'non_home_pageviews': domain_no_home_pv,
+                'non_home_pages': domain_pages
+            }
+        else:
+            pageviews_data = None
 
         if pageviews_data and 'screenPageViews' in merged_df.columns:
             # Métricas comparativas
