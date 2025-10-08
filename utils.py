@@ -914,14 +914,14 @@ def create_media_config():
                     'domain': 'clarin.com',
                     'property_id': ga_config.get('clarin_property_id', '287171418'),
                     'icon': '📰',
-                    'color': '#1e88e5'
+                    'color': '#9b51e0'
                 },
                 'ole': {
                     'name': 'Olé',
                     'domain': 'ole.com.ar',
                     'property_id': ga_config.get('ole_property_id', '151714594'),
                     'icon': '⚽',
-                    'color': '#43a047'
+                    'color': '#9b51e0'
                 },
                 'okdiario': {
                     'name': 'OK Diario',
@@ -942,35 +942,35 @@ def create_media_config():
                     'domain': 'nationalgeographic',  # Buscar todas las variantes
                     'property_id': ga_config.get('natgeo_property_id', '000000000'),
                     'icon': '🌍',
-                    'color': '#ffcc02'
+                    'color': '#9b51e0'
                 },
                 'mundodeportivo': {
                     'name': 'Mundo Deportivo',
                     'domain': 'mundodeportivo.com',
                     'property_id': ga_config.get('mundodeportivo_property_id', '000000000'),
                     'icon': '🏆',
-                    'color': '#0066cc'
+                    'color': '#9b51e0'
                 },
                 'vidae': {
                     'name': 'Vidae',
                     'domain': 'vidae.com.ar',
                     'property_id': ga_config.get('vidae_property_id', '000000000'),
                     'icon': '💫',
-                    'color': '#9c27b0'
+                    'color': '#9b51e0'
                 },
                 'bumeran': {
                     'name': 'Bumeran',
                     'domain': 'bumeran.com.ar',
                     'property_id': ga_config.get('bumeran_property_id', '000000000'),
                     'icon': '💼',
-                    'color': '#00a651'
+                    'color': '#9b51e0'
                 },
                 'sancor': {
                     'name': 'Sancor',
                     'domain': 'sancorsalud.com.ar',
                     'property_id': ga_config.get('sancor_property_id', '000000000'),
                     'icon': '🏥',
-                    'color': '#0d47a1'
+                    'color': '#9b51e0'
                 }
             }
     except:
@@ -983,14 +983,14 @@ def create_media_config():
             'domain': 'clarin.com',
             'property_id': '287171418',
             'icon': '📰',
-            'color': '#1e88e5'
+            'color': '#9b51e0'
         },
         'ole': {
             'name': 'Olé',
             'domain': 'ole.com.ar',
             'property_id': '151714594',
             'icon': '⚽',
-            'color': '#43a047'
+            'color': '#9b51e0'
         },
         'okdiario': {
             'name': 'OK Diario',
@@ -1011,35 +1011,35 @@ def create_media_config():
             'domain': 'nationalgeographic',  # Buscar todas las variantes
             'property_id': '000000000',
             'icon': '🌍',
-            'color': '#ffcc02'
+            'color': '#9b51e0'
         },
         'mundodeportivo': {
             'name': 'Mundo Deportivo',
             'domain': 'mundodeportivo.com',
             'property_id': '416839948',
             'icon': '🏆',
-            'color': '#0066cc'
+            'color': '#9b51e0'
         },
         'vidae': {
             'name': 'Vidae',
             'domain': 'vidae.com.ar',
             'property_id': '000000000',
             'icon': '💫',
-            'color': '#9c27b0'
+            'color': '#9b51e0'
         },
         'bumeran': {
             'name': 'Bumeran',
             'domain': 'bumeran.com.ar',
             'property_id': '000000000',
             'icon': '💼',
-            'color': '#00a651'
+            'color': '#9b51e0'
         },
         'sancor': {
             'name': 'Sancor',
             'domain': 'sancorsalud.com.ar',
             'property_id': '000000000',
             'icon': '🏥',
-            'color': '#0d47a1'
+            'color': '#9b51e0'
         }
     }
 
