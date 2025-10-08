@@ -93,7 +93,7 @@ st.title(f"{media_config['name']}")
 st.markdown("---")
 
 # Sidebar con opciones
-st.sidebar.header("⚙️ Configuración")
+st.sidebar.header("Configuración")
 
 # Selector de rango de fechas para GA4
 date_option = st.sidebar.selectbox(
@@ -137,12 +137,12 @@ else:
 
     # Validar que la fecha de inicio sea anterior a la fecha de fin
     if start_date_custom > end_date_custom:
-        st.sidebar.error("⚠️ La fecha de inicio debe ser anterior a la fecha de fin")
+        st.sidebar.error("La fecha de inicio debe ser anterior a la fecha de fin")
         start_date_param = "7daysAgo"
         end_date_param = "today"
 
 # Botón de actualización
-if st.sidebar.button("🔄 Actualizar datos"):
+if st.sidebar.button("Actualizar datos"):
     st.cache_data.clear()
     st.rerun()
 
@@ -170,7 +170,7 @@ with st.spinner('Cargando datos...'):
 
 # Verificar si hay datos
 if sheets_filtered.empty and (ga4_df is None or ga4_df.empty):
-    st.error("⚠️ No se encontraron datos para mostrar")
+    st.error("No se encontraron datos para mostrar")
     st.info(f"""
     **Posibles causas:**
     - No hay URLs de {media_config['domain']} en el Google Sheet
@@ -241,14 +241,14 @@ else:
 
         with col1:
             st.metric(
-                "🎯 Objetivo Mensual",
+                "Objetivo Mensual",
                 f"{monthly_goal:,}",
                 help="Meta de Page Views para este mes"
             )
 
         with col2:
             st.metric(
-                "📈 Progreso Actual",
+                "Progreso Actual",
                 f"{current_progress:,}",
                 delta=f"{current_progress - monthly_goal:,}" if current_progress >= monthly_goal else None,
                 help="Page Views acumulados en lo que va del mes (solo artículos del Sheet)"
@@ -256,7 +256,7 @@ else:
 
         with col3:
             st.metric(
-                "📊 % Completado",
+                "% Completado",
                 f"{progress_percentage:.1f}%",
                 help="Porcentaje del objetivo alcanzado"
             )
@@ -292,7 +292,7 @@ else:
         st.markdown("---")
 
         # ==================== SECCIÓN 2: PROGRESIÓN DEL OBJETIVO ====================
-        st.markdown("## 📈 Progresión del Objetivo a lo largo del Mes")
+        st.markdown("## Progresión del Objetivo a lo largo del Mes")
 
         # Información adicional
         current_date = datetime.now()
@@ -312,14 +312,14 @@ else:
 
         with col1:
             st.metric(
-                "📅 Días Transcurridos",
+                "Días Transcurridos",
                 f"{days_in_month}/{days_total_month}",
                 help="Días transcurridos del mes actual"
             )
 
         with col2:
             st.metric(
-                "📊 Promedio Diario",
+                "Promedio Diario",
                 f"{daily_average:,.0f}",
                 help="Page Views promedio por día en lo que va del mes"
             )
@@ -327,7 +327,7 @@ else:
         with col3:
             projection_delta = projected_monthly - monthly_goal
             st.metric(
-                "🔮 Proyección Mensual",
+                "Proyección Mensual",
                 f"{projected_monthly:,.0f}",
                 delta=f"{projection_delta:,.0f}",
                 delta_color="normal" if projection_delta >= 0 else "inverse",
@@ -401,7 +401,7 @@ else:
         st.markdown("---")
 
         # ==================== SECCIÓN 3: TOP URLS ====================
-        st.markdown("## 🔝 Top URLs según Page Views")
+        st.markdown("## Top URLs según Page Views")
 
         top_n = st.slider("Número de URLs a mostrar:", 5, 50, 20, key="top_urls_slider_ole")
 
@@ -411,8 +411,6 @@ else:
             if 'titulo' in merged_df.columns:
                 display_columns.append('titulo')
             display_columns.extend(['url_normalized', 'screenPageViews'])
-            if 'autor' in merged_df.columns:
-                display_columns.append('autor')
 
             top_urls = merged_df.nlargest(top_n, 'screenPageViews')[display_columns].copy()
 
@@ -420,8 +418,7 @@ else:
             column_rename = {
                 'titulo': 'Título',
                 'url_normalized': 'URL',
-                'screenPageViews': 'Page Views',
-                'autor': 'Autor'
+                'screenPageViews': 'Page Views'
             }
             top_urls = top_urls.rename(columns={k: v for k, v in column_rename.items() if k in top_urls.columns})
 
@@ -456,7 +453,7 @@ else:
         st.markdown("---")
 
         # ==================== SECCIÓN 4: COMPARATIVA DOMINIO VS SHEET ====================
-        st.markdown("## 🔄 Comparativa: Dominio Completo vs URLs del Sheet")
+        st.markdown("## Comparativa: Dominio Completo vs URLs del Sheet")
         st.caption(f"Período de análisis: {start_date_param} a {end_date_param}")
 
         # Obtener datos del dominio completo (sin home) usando el período seleccionado
@@ -501,14 +498,14 @@ else:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.markdown("### 🌐 Dominio Completo (sin home)")
+                st.markdown("### Dominio Completo (sin home)")
                 st.metric("Total Page Views", f"{domain_no_home_pv:,.0f}")
                 st.metric("Páginas Únicas", f"{domain_pages:,.0f}")
                 avg_domain = domain_no_home_pv / domain_pages if domain_pages > 0 else 0
                 st.metric("Promedio PV/Página", f"{avg_domain:,.0f}")
 
             with col2:
-                st.markdown("### 📰 URLs del Sheet")
+                st.markdown("### URLs del Sheet")
                 st.metric("Total Page Views", f"{sheet_total_pv:,.0f}")
                 st.metric("Páginas Únicas", f"{sheet_pages:,.0f}")
                 avg_sheet = sheet_total_pv / sheet_pages if sheet_pages > 0 else 0
@@ -517,7 +514,7 @@ else:
             # Calcular porcentaje de representación
             if domain_no_home_pv > 0:
                 representation_pct = (sheet_total_pv / domain_no_home_pv) * 100
-                st.info(f"📊 Las URLs del Sheet representan el **{representation_pct:.1f}%** del tráfico total del dominio (sin home)")
+                st.info(f"Las URLs del Sheet representan el **{representation_pct:.1f}%** del tráfico total del dominio (sin home)")
 
             # Gráfico comparativo
             comparison_data = pd.DataFrame({
@@ -565,7 +562,7 @@ else:
         st.markdown("---")
 
         # ==================== SECCIÓN 5: CRECIMIENTO ====================
-        st.markdown("## 📊 Análisis de Crecimiento")
+        st.markdown("## Análisis de Crecimiento")
 
         # Selector de tipo de comparación
         col1, col2 = st.columns([1, 3])
@@ -575,10 +572,10 @@ else:
                 "Tipo de comparación:",
                 ["day", "week", "month", "90days", "custom"],
                 format_func=lambda x: {
-                    "day": "Día vs Día anterior",
-                    "week": "Semana vs Semana anterior",
-                    "month": "Mes vs Mes anterior",
-                    "90days": "90 días vs 90 días anteriores",
+                    "day": "Día actual vs día anterior",
+                    "week": "Semana actual vs semana anterior",
+                    "month": "Mes actual vs mes anterior",
+                    "90days": "90 días actuales vs 90 días anteriores",
                     "custom": "Período personalizado"
                 }[x],
                 key="comparison_type_cliente_ole"
@@ -641,7 +638,7 @@ else:
             )
 
         if growth_data:
-            st.success(f"✅ Comparando: {growth_data['period_name']}")
+            
 
             # Mostrar períodos
             col1, col2 = st.columns(2)
@@ -658,9 +655,9 @@ else:
             with col1:
                 pv_data = growth_data['data']['pageviews']
                 growth_pct = pv_data['growth_percentage']
-                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                delta_color = "normal" if growth_pct >= 0 else "inverse"
                 st.metric(
-                    "📊 Page Views",
+                    "Page Views",
                     f"{pv_data['current']:,}",
                     delta=format_growth_percentage(growth_pct, pv_data['growth_absolute']),
                     delta_color=delta_color
@@ -669,9 +666,9 @@ else:
             with col2:
                 sessions_data = growth_data['data']['sessions']
                 growth_pct = sessions_data['growth_percentage']
-                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                delta_color = "normal" if growth_pct >= 0 else "inverse"
                 st.metric(
-                    "👥 Sesiones",
+                    "Sesiones",
                     f"{sessions_data['current']:,}",
                     delta=format_growth_percentage(growth_pct, sessions_data['growth_absolute']),
                     delta_color=delta_color
@@ -680,9 +677,9 @@ else:
             with col3:
                 users_data = growth_data['data']['users']
                 growth_pct = users_data['growth_percentage']
-                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                delta_color = "normal" if growth_pct >= 0 else "inverse"
                 st.metric(
-                    "🔗 Usuarios",
+                    "Usuarios",
                     f"{users_data['current']:,}",
                     delta=format_growth_percentage(growth_pct, users_data['growth_absolute']),
                     delta_color=delta_color
@@ -718,11 +715,11 @@ else:
             st.plotly_chart(fig_comparison, use_container_width=True)
 
         else:
-            st.error("❌ No se pudieron obtener los datos de crecimiento")
+            st.error("No se pudieron obtener los datos de crecimiento")
 
     elif ga4_df is not None and not ga4_df.empty:
         # Solo datos de GA4
-        st.warning(f"⚠️ No se encontraron URLs de {media_config['name']} en el Google Sheet. Mostrando solo datos de GA4.")
+        st.warning(f"No se encontraron URLs de {media_config['name']} en el Google Sheet. Mostrando solo datos de GA4.")
 
         # Métricas de GA4
         col1, col2, col3, col4 = st.columns(4)
@@ -742,9 +739,9 @@ else:
 
     else:
         # Solo datos del Sheet
-        st.warning("⚠️ No se pudieron obtener datos de GA4. Mostrando solo datos del Google Sheet.")
+        st.warning("No se pudieron obtener datos de GA4. Mostrando solo datos del Google Sheet.")
         st.dataframe(sheets_filtered, use_container_width=True)
 
 # Footer
 st.markdown("---")
-st.caption(f"📊 Dashboard de {media_config['name']} | Property ID: {media_config['property_id']} | Dominio: {media_config['domain']}")
+st.caption(f"Dashboard de {media_config['name']} | Property ID: {media_config['property_id']} | Dominio: {media_config['domain']}")
