@@ -30,6 +30,18 @@ st.set_page_config(
     layout="wide"
 )
 
+# Ocultar sidebar
+st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Aplicar fuente Montserrat
 st.markdown("""
 <style>

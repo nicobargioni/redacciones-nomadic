@@ -30,6 +30,18 @@ st.set_page_config(
     layout="wide"
 )
 
+# Ocultar sidebar
+st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Aplicar fuente Montserrat
 st.markdown("""
 <style>
@@ -229,6 +241,7 @@ else:
                 total_monthly_pageviews = merged_monthly['screenPageViews'].sum()
 
         # ==================== SECCIÓN 1: GAUGE ====================
+
 
         # Configuración del KPI
         monthly_goal = 3000000  # 3 millones de Page Views
@@ -455,7 +468,7 @@ else:
                 selected_author = st.selectbox(
                     "Seleccionar Autor:",
                     options=authors_list,
-                    key="individual_author_selector"
+                    key="individual_author_selector_bumeran"
                 )
 
             with col2:
@@ -472,7 +485,7 @@ else:
                     value=min_date,
                     min_value=min_date,
                     max_value=max_date,
-                    key="author_start_date"
+                    key="author_start_date_bumeran"
                 )
 
             with col3:
@@ -482,7 +495,7 @@ else:
                     value=max_date,
                     min_value=min_date,
                     max_value=max_date,
-                    key="author_end_date"
+                    key="author_end_date_bumeran"
                 )
 
             # Filtrar datos por autor y fecha
@@ -744,163 +757,161 @@ else:
 
         st.markdown("---")
 
-        # Mantener las tabs antiguas ocultas en un expander para no perder funcionalidad
-        with st.expander("📊 Ver Análisis Avanzados (Crecimiento e Histórico)"):
-            # Contenido de crecimiento
-            st.subheader(" Crecimiento")
+        # ==================== SECCIÓN 6: CRECIMIENTO ====================
+        st.markdown("##  Análisis de Crecimiento")
 
-            # Selector de tipo de comparación
-            col1, col2 = st.columns([1, 3])
+        # Selector de tipo de comparación
+        col1, col2 = st.columns([1, 3])
+
+        with col1:
+            comparison_type = st.selectbox(
+                "Tipo de comparación:",
+                ["day", "week", "month", "90days", "custom"],
+                format_func=lambda x: {
+                    "day": "Día vs Día anterior",
+                    "week": "Semana vs Semana anterior",
+                    "month": "Mes vs Mes anterior",
+                    "90days": "90 días vs 90 días anteriores",
+                    "custom": "Período personalizado"
+                }[x],
+                key="comparison_type_redac_bumeran"
+            )
+
+        # Obtener URLs normalizadas del Sheet para filtrar
+        sheets_urls_growth = None
+        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
+            sheets_urls_growth = sheets_filtered['url_normalized'].dropna().unique().tolist()
+
+        # Si es personalizado, mostrar selectores de fecha
+        if comparison_type == "custom":
+            st.markdown("**Período Actual:**")
+            col1, col2 = st.columns(2)
+            with col1:
+                current_start = st.date_input(
+                    "Inicio actual:",
+                    value=datetime.now() - timedelta(days=7),
+                    key="growth_current_start_redac_bumeran"
+                )
+            with col2:
+                current_end = st.date_input(
+                    "Fin actual:",
+                    value=datetime.now(),
+                    key="growth_current_end_redac_bumeran"
+                )
+
+            st.markdown("**Período de Comparación:**")
+            col3, col4 = st.columns(2)
+            with col3:
+                previous_start = st.date_input(
+                    "Inicio comparación:",
+                    value=datetime.now() - timedelta(days=14),
+                    key="growth_previous_start_redac_bumeran"
+                )
+            with col4:
+                previous_end = st.date_input(
+                    "Fin comparación:",
+                    value=datetime.now() - timedelta(days=8),
+                    key="growth_previous_end_redac_bumeran"
+                )
+
+            # Obtener datos personalizados
+            growth_data = get_ga4_growth_data_custom(
+                media_config['property_id'],
+                credentials_file,
+                current_start,
+                current_end,
+                previous_start,
+                previous_end,
+                sheets_urls_growth
+            )
+        else:
+            # Obtener datos predefinidos
+            growth_data = get_ga4_growth_data(
+                media_config['property_id'],
+                credentials_file,
+                comparison_type,
+                sheets_urls_growth
+            )
+
+        if growth_data:
+            st.success(f" Comparando: {growth_data['period_name']}")
+
+            # Mostrar períodos
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**Período Actual:** {growth_data['current_period']}")
+            with col2:
+                st.info(f"**Período Anterior:** {growth_data['previous_period']}")
+
+            st.markdown("---")
+
+            # Métricas de crecimiento
+            col1, col2, col3 = st.columns(3)
 
             with col1:
-                comparison_type = st.selectbox(
-                    "Tipo de comparación:",
-                    ["day", "week", "month", "90days", "custom"],
-                    format_func=lambda x: {
-                        "day": "Día vs Día anterior",
-                        "week": "Semana vs Semana anterior",
-                        "month": "Mes vs Mes anterior",
-                        "90days": "90 días vs 90 días anteriores",
-                        "custom": "Período personalizado"
-                    }[x],
-                    key="comparison_type_redac_bumeran"
+                pv_data = growth_data['data']['pageviews']
+                growth_pct = pv_data['growth_percentage']
+                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                st.metric(
+                    " Page Views",
+                    f"{pv_data['current']:,}",
+                    delta=format_growth_percentage(growth_pct, pv_data['growth_absolute']),
+                    delta_color=delta_color
                 )
 
-            # Obtener URLs normalizadas del Sheet para filtrar
-            sheets_urls_growth = None
-            if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
-                sheets_urls_growth = sheets_filtered['url_normalized'].dropna().unique().tolist()
-
-            # Si es personalizado, mostrar selectores de fecha
-            if comparison_type == "custom":
-                st.markdown("**Período Actual:**")
-                col1, col2 = st.columns(2)
-                with col1:
-                    current_start = st.date_input(
-                        "Inicio actual:",
-                        value=datetime.now() - timedelta(days=7),
-                        key="growth_current_start_redac_bumeran"
-                    )
-                with col2:
-                    current_end = st.date_input(
-                        "Fin actual:",
-                        value=datetime.now(),
-                        key="growth_current_end_redac_bumeran"
-                    )
-
-                st.markdown("**Período de Comparación:**")
-                col3, col4 = st.columns(2)
-                with col3:
-                    previous_start = st.date_input(
-                        "Inicio comparación:",
-                        value=datetime.now() - timedelta(days=14),
-                        key="growth_previous_start_redac_bumeran"
-                    )
-                with col4:
-                    previous_end = st.date_input(
-                        "Fin comparación:",
-                        value=datetime.now() - timedelta(days=8),
-                        key="growth_previous_end_redac_bumeran"
-                    )
-
-                # Obtener datos personalizados
-                growth_data = get_ga4_growth_data_custom(
-                    media_config['property_id'],
-                    credentials_file,
-                    current_start,
-                    current_end,
-                    previous_start,
-                    previous_end,
-                    sheets_urls_growth
-                )
-            else:
-                # Obtener datos predefinidos
-                growth_data = get_ga4_growth_data(
-                    media_config['property_id'],
-                    credentials_file,
-                    comparison_type,
-                    sheets_urls_growth
+            with col2:
+                sessions_data = growth_data['data']['sessions']
+                growth_pct = sessions_data['growth_percentage']
+                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                st.metric(
+                    " Sesiones",
+                    f"{sessions_data['current']:,}",
+                    delta=format_growth_percentage(growth_pct, sessions_data['growth_absolute']),
+                    delta_color=delta_color
                 )
 
-            if growth_data:
-                st.success(f" Comparando: {growth_data['period_name']}")
-
-                # Mostrar períodos
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.info(f"**Período Actual:** {growth_data['current_period']}")
-                with col2:
-                    st.info(f"**Período Anterior:** {growth_data['previous_period']}")
-
-                st.markdown("---")
-
-                # Métricas de crecimiento
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-                    pv_data = growth_data['data']['pageviews']
-                    growth_pct = pv_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
-                    st.metric(
-                        " Page Views",
-                        f"{pv_data['current']:,}",
-                        delta=format_growth_percentage(growth_pct, pv_data['growth_absolute']),
-                        delta_color=delta_color
-                    )
-
-                with col2:
-                    sessions_data = growth_data['data']['sessions']
-                    growth_pct = sessions_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
-                    st.metric(
-                        " Sesiones",
-                        f"{sessions_data['current']:,}",
-                        delta=format_growth_percentage(growth_pct, sessions_data['growth_absolute']),
-                        delta_color=delta_color
-                    )
-
-                with col3:
-                    users_data = growth_data['data']['users']
-                    growth_pct = users_data['growth_percentage']
-                    delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
-                    st.metric(
-                        " Usuarios",
-                        f"{users_data['current']:,}",
-                        delta=format_growth_percentage(growth_pct, users_data['growth_absolute']),
-                        delta_color=delta_color
-                    )
-
-                st.markdown("---")
-
-                # Gráfico de comparación
-                metrics = ['pageviews', 'sessions', 'users']
-                metric_names = ['Page Views', 'Sesiones', 'Usuarios']
-                current_values = [growth_data['data'][m]['current'] for m in metrics]
-                previous_values = [growth_data['data'][m]['previous'] for m in metrics]
-
-                # Crear DataFrame para el gráfico
-                chart_data = pd.DataFrame({
-                    'Métrica': metric_names + metric_names,
-                    'Valor': current_values + previous_values,
-                    'Período': ['Actual'] * 3 + ['Anterior'] * 3
-                })
-
-                fig_comparison = px.bar(
-                    chart_data,
-                    x='Métrica',
-                    y='Valor',
-                    color='Período',
-                    barmode='group',
-                    title=f'Comparación de Métricas: {growth_data["period_name"]}',
-                    color_discrete_map={
-                        'Actual': media_config['color'],
-                        'Anterior': '#cccccc'
-                    }
+            with col3:
+                users_data = growth_data['data']['users']
+                growth_pct = users_data['growth_percentage']
+                delta_color = "normal" if growth_pct >= 0 or growth_pct == float('inf') else "inverse"
+                st.metric(
+                    " Usuarios",
+                    f"{users_data['current']:,}",
+                    delta=format_growth_percentage(growth_pct, users_data['growth_absolute']),
+                    delta_color=delta_color
                 )
-                st.plotly_chart(fig_comparison, use_container_width=True)
 
-            else:
-                st.error(" No se pudieron obtener los datos de crecimiento")
+            st.markdown("---")
+
+            # Gráfico de comparación
+            metrics = ['pageviews', 'sessions', 'users']
+            metric_names = ['Page Views', 'Sesiones', 'Usuarios']
+            current_values = [growth_data['data'][m]['current'] for m in metrics]
+            previous_values = [growth_data['data'][m]['previous'] for m in metrics]
+
+            # Crear DataFrame para el gráfico
+            chart_data = pd.DataFrame({
+                'Métrica': metric_names + metric_names,
+                'Valor': current_values + previous_values,
+                'Período': ['Actual'] * 3 + ['Anterior'] * 3
+            })
+
+            fig_comparison = px.bar(
+                chart_data,
+                x='Métrica',
+                y='Valor',
+                color='Período',
+                barmode='group',
+                title=f'Comparación de Métricas: {growth_data["period_name"]}',
+                color_discrete_map={
+                    'Actual': media_config['color'],
+                    'Anterior': '#cccccc'
+                }
+            )
+            st.plotly_chart(fig_comparison, use_container_width=True)
+
+        else:
+            st.error(" No se pudieron obtener los datos de crecimiento")
 
     elif ga4_df is not None and not ga4_df.empty:
         # Solo datos de GA4
@@ -910,13 +921,13 @@ else:
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric(" Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
+            st.metric("Sesiones", f"{ga4_df['sessions'].sum():,.0f}")
         with col2:
-            st.metric(" Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
+            st.metric("Usuarios", f"{ga4_df['totalUsers'].sum():,.0f}")
         with col3:
-            st.metric(" Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
+            st.metric("Vistas", f"{ga4_df['screenPageViews'].sum():,.0f}")
         with col4:
-            st.metric(" Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
+            st.metric("Rebote", f"{ga4_df['bounceRate'].mean():.1f}%")
         
         st.markdown("---")
         st.subheader("Datos de Google Analytics 4")
