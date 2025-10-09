@@ -6,6 +6,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Ocultar sidebar
+st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        display: none;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("📊 Nomadic | Dashboard de Medios")
 st.markdown("---")
 
