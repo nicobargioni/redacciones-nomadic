@@ -466,27 +466,78 @@ else:
 
         # ==================== SECCIÓN 4: COMPARATIVA DOMINIO VS SHEET ====================
         st.markdown("## Comparativa: Dominio Completo vs URLs del Sheet")
-        st.caption(f"Período de análisis: {start_date_param} a {end_date_param}")
 
-        # Obtener datos del dominio completo (sin home) usando el período seleccionado
+        # Selectores de tiempo para la comparativa
+        col1, col2 = st.columns([1, 3])
+
+        with col1:
+            comparison_date_option = st.selectbox(
+                "Rango de fechas:",
+                ["7daysAgo", "14daysAgo", "30daysAgo", "90daysAgo", "Personalizado"],
+                format_func=lambda x: {
+                    "7daysAgo": "Últimos 7 días",
+                    "14daysAgo": "Últimos 14 días",
+                    "30daysAgo": "Últimos 30 días",
+                    "90daysAgo": "Últimos 90 días",
+                    "Personalizado": "Personalizado"
+                }[x],
+                key="comparison_date_range_sancor"
+            )
+
+        # Si es personalizado, mostrar selectores de fecha
+        if comparison_date_option == "Personalizado":
+            col1, col2 = st.columns(2)
+            with col1:
+                comparison_start_date = st.date_input(
+                    "Fecha inicio:",
+                    value=datetime.now() - timedelta(days=7),
+                    key="comparison_start_sancor"
+                )
+            with col2:
+                comparison_end_date = st.date_input(
+                    "Fecha fin:",
+                    value=datetime.now(),
+                    key="comparison_end_sancor"
+                )
+
+            comparison_start_param = comparison_start_date.strftime("%Y-%m-%d")
+            comparison_end_param = comparison_end_date.strftime("%Y-%m-%d")
+        else:
+            comparison_start_param = comparison_date_option
+            comparison_end_param = "today"
+
         # Convertir el período al formato adecuado si es necesario
-        if start_date_param.endswith("daysAgo"):
-            days = int(start_date_param.replace("daysAgo", ""))
+        if comparison_start_param.endswith("daysAgo"):
+            days = int(comparison_start_param.replace("daysAgo", ""))
             period_start = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
         else:
-            period_start = start_date_param
+            period_start = comparison_start_param
 
-        if end_date_param == "today":
+        if comparison_end_param == "today":
             period_end = datetime.now().strftime('%Y-%m-%d')
         else:
-            period_end = end_date_param
+            period_end = comparison_end_param
 
-        # Usar los datos de GA4 ya cargados para la comparativa
-        if ga4_df is not None and not ga4_df.empty:
-            # Calcular métricas del dominio completo desde ga4_df
-            domain_total_pv = ga4_df['screenPageViews'].sum()
+        st.caption(f"Período de análisis: {period_start} a {period_end}")
+
+        # Cargar datos de GA4 para la comparativa con el rango seleccionado
+        with st.spinner('Cargando datos de comparativa...'):
+            ga4_comparison_df = get_ga4_data(
+                media_config['property_id'],
+                credentials_file,
+                start_date=comparison_start_param,
+                end_date=comparison_end_param
+            )
+
+        # Usar los datos de GA4 de la comparativa
+        if ga4_comparison_df is not None and not ga4_comparison_df.empty:
+            # Mergear datos del Sheet con GA4 del período seleccionado
+            merged_comparison_df = merge_sheets_with_ga4(sheets_filtered, ga4_comparison_df, media_config['domain'])
+
+            # Calcular métricas del dominio completo
+            domain_total_pv = ga4_comparison_df['screenPageViews'].sum()
             # Filtrar home page si existe
-            ga4_no_home = ga4_df[~ga4_df['pagePath'].isin(['/', '/index.html', '/home'])]
+            ga4_no_home = ga4_comparison_df[~ga4_comparison_df['pagePath'].isin(['/', '/index.html', '/home'])]
             domain_no_home_pv = ga4_no_home['screenPageViews'].sum()
             domain_pages = ga4_no_home['pagePath'].nunique()
 
@@ -497,15 +548,16 @@ else:
             }
         else:
             pageviews_data = None
+            merged_comparison_df = pd.DataFrame()
 
-        if pageviews_data and 'screenPageViews' in merged_df.columns:
+        if pageviews_data and not merged_comparison_df.empty and 'screenPageViews' in merged_comparison_df.columns:
             # Métricas comparativas
             domain_total_pv = pageviews_data['total_pageviews']
             domain_no_home_pv = pageviews_data['non_home_pageviews']
             domain_pages = pageviews_data['non_home_pages']
 
-            sheet_total_pv = merged_df['screenPageViews'].sum()
-            sheet_pages = len(merged_df)
+            sheet_total_pv = merged_comparison_df['screenPageViews'].sum()
+            sheet_pages = len(merged_comparison_df)
 
             col1, col2 = st.columns(2)
 
