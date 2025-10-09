@@ -778,14 +778,17 @@ def get_monthly_pageviews_by_sheets(property_id, credentials_file, sheets_urls, 
         )
         
         if ga4_monthly_df is not None and not ga4_monthly_df.empty and sheets_urls:
-            # Crear un DataFrame temporal con las URLs del Sheet para merge
-            temp_sheets_df = pd.DataFrame({'url_normalized': sheets_urls})
-            
-            # Usar merge_sheets_with_ga4 para obtener solo páginas del Sheet
-            merged_monthly = merge_sheets_with_ga4(temp_sheets_df, ga4_monthly_df, domain)
-            
-            if not merged_monthly.empty and 'screenPageViews' in merged_monthly.columns:
-                result = int(merged_monthly['screenPageViews'].sum())
+            # Normalizar URLs de GA4
+            ga4_monthly_df['url_normalized'] = ga4_monthly_df['pagePath'].apply(
+                lambda x: normalize_url(f"{domain}{x}")
+            )
+
+            # Filtrar solo las URLs que están en sheets_urls (matching exacto)
+            filtered_df = ga4_monthly_df[ga4_monthly_df['url_normalized'].isin(sheets_urls)]
+
+            if not filtered_df.empty and 'screenPageViews' in filtered_df.columns:
+                result = int(filtered_df['screenPageViews'].sum())
+                logger.info(f"Pageviews mensuales calculados: {result} de {len(filtered_df)} URLs")
                 return result
             else:
                 return 0
