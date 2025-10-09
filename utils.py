@@ -292,11 +292,9 @@ def get_ga4_data_with_country(property_id, credentials_file, start_date="7daysAg
         # Definir dimensiones (incluyendo país si se especifica)
         dimensions = [
             {'name': 'pagePath'},
-            {'name': 'date'},
-            {'name': 'sessionSource'},
-            {'name': 'sessionMedium'}
+            {'name': 'date'}
         ]
-        
+
         # Agregar dimensión de país si se requiere filtro
         if country_filter:
             dimensions.append({'name': 'country'})
@@ -446,9 +444,7 @@ def get_ga4_data(property_id, credentials_file, start_date="7daysAgo", end_date=
         request_body = {
             'dimensions': [
                 {'name': 'pagePath'},
-                {'name': 'date'},
-                {'name': 'sessionSource'},
-                {'name': 'sessionMedium'}
+                {'name': 'date'}
             ],
             'metrics': [
                 {'name': 'sessions'},
