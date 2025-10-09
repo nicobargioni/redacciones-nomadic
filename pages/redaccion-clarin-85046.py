@@ -203,8 +203,8 @@ else:
         
         # Obtener URLs del Sheet filtradas para las métricas
         sheets_urls_for_metrics = None
-        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
-            sheets_urls_for_metrics = sheets_filtered['url_normalized'].dropna().unique().tolist()
+        if not merged_df.empty and 'url_normalized' in merged_df.columns:
+            sheets_urls_for_metrics = merged_df['url_normalized'].dropna().unique().tolist()
         
         # Obtener pageviews del mes actual
         monthly_pageviews = 0
@@ -348,8 +348,8 @@ else:
 
         # Obtener URLs del Sheet para filtrar datos históricos
         sheets_urls = None
-        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
-            sheets_urls = sheets_filtered['url_normalized'].dropna().unique().tolist()
+        if not merged_df.empty and 'url_normalized' in merged_df.columns:
+            sheets_urls = merged_df['url_normalized'].dropna().unique().tolist()
 
         # Cargar datos históricos del mes actual para mostrar progresión
         with st.spinner("Cargando progresión del mes..."):
@@ -779,8 +779,8 @@ else:
 
         # Obtener URLs normalizadas del Sheet para filtrar
         sheets_urls_growth = None
-        if not sheets_filtered.empty and 'url_normalized' in sheets_filtered.columns:
-            sheets_urls_growth = sheets_filtered['url_normalized'].dropna().unique().tolist()
+        if not merged_df.empty and 'url_normalized' in merged_df.columns:
+            sheets_urls_growth = merged_df['url_normalized'].dropna().unique().tolist()
 
         # Si es personalizado, mostrar selectores de fecha
         if comparison_type == "custom":
