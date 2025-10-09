@@ -1139,37 +1139,29 @@ def get_ga4_growth_data(property_id, credentials_file, comparison_type="day", sh
             total_users = 0
             
             if 'rows' in response and sheets_urls:
-                # Si tenemos URLs del Sheet, filtrar solo esas
+                # Si tenemos URLs del Sheet, filtrar solo esas con match EXACTO
                 for row in response['rows']:
                     page_path = row['dimensionValues'][0]['value']
-                    
-                    # Buscar si este pagePath está en alguna de las URLs del Sheet
-                    # Comparar el path completo ya que sheets_urls ya está normalizado
+
+                    # Normalizar el pagePath para comparación exacta
+                    # sheets_urls ya están normalizadas
+                    normalized_page_path = normalize_url(page_path)
+
+                    # Buscar coincidencia EXACTA
                     match_found = False
                     for sheet_url in sheets_urls:
-                        # Verificar si el pagePath está contenido en la URL del Sheet
-                        if page_path in sheet_url or sheet_url.endswith(page_path.lstrip('/')):
+                        if normalized_page_path == sheet_url:
                             match_found = True
                             break
-                    
+
                     if match_found:
                         pageviews = int(row['metricValues'][0]['value'])
                         sessions = int(row['metricValues'][1]['value'])
                         users = int(row['metricValues'][2]['value'])
-                        
+
                         total_pageviews += pageviews
                         total_sessions += sessions
                         total_users += users
-            elif 'rows' in response and not sheets_urls:
-                # Si no hay URLs del Sheet, usar todos los datos (fallback)
-                for row in response['rows']:
-                    pageviews = int(row['metricValues'][0]['value'])
-                    sessions = int(row['metricValues'][1]['value'])
-                    users = int(row['metricValues'][2]['value'])
-                    
-                    total_pageviews += pageviews
-                    total_sessions += sessions
-                    total_users += users
             
             return {
                 'pageviews': total_pageviews,
@@ -1269,37 +1261,29 @@ def get_ga4_growth_data_custom(property_id, credentials_file, current_start, cur
             total_users = 0
             
             if 'rows' in response and sheets_urls:
-                # Si tenemos URLs del Sheet, filtrar solo esas
+                # Si tenemos URLs del Sheet, filtrar solo esas con match EXACTO
                 for row in response['rows']:
                     page_path = row['dimensionValues'][0]['value']
-                    
-                    # Buscar si este pagePath está en alguna de las URLs del Sheet
-                    # Comparar el path completo ya que sheets_urls ya está normalizado
+
+                    # Normalizar el pagePath para comparación exacta
+                    # sheets_urls ya están normalizadas
+                    normalized_page_path = normalize_url(page_path)
+
+                    # Buscar coincidencia EXACTA
                     match_found = False
                     for sheet_url in sheets_urls:
-                        # Verificar si el pagePath está contenido en la URL del Sheet
-                        if page_path in sheet_url or sheet_url.endswith(page_path.lstrip('/')):
+                        if normalized_page_path == sheet_url:
                             match_found = True
                             break
-                    
+
                     if match_found:
                         pageviews = int(row['metricValues'][0]['value'])
                         sessions = int(row['metricValues'][1]['value'])
                         users = int(row['metricValues'][2]['value'])
-                        
+
                         total_pageviews += pageviews
                         total_sessions += sessions
                         total_users += users
-            elif 'rows' in response and not sheets_urls:
-                # Si no hay URLs del Sheet, usar todos los datos (fallback)
-                for row in response['rows']:
-                    pageviews = int(row['metricValues'][0]['value'])
-                    sessions = int(row['metricValues'][1]['value'])
-                    users = int(row['metricValues'][2]['value'])
-                    
-                    total_pageviews += pageviews
-                    total_sessions += sessions
-                    total_users += users
             
             return {
                 'pageviews': total_pageviews,
@@ -1412,39 +1396,35 @@ def get_ga4_historical_data(property_id, credentials_file, start_date, end_date,
         
         # Procesar respuesta
         data = []
-        
+
         if 'rows' in response:
             for row in response['rows']:
                 page_path = row['dimensionValues'][0]['value']
                 date_str = row['dimensionValues'][1]['value']
-                
-                # Buscar si este pagePath está en alguna de las URLs del Sheet
-                # Comparar el path completo ya que sheets_urls ya está normalizado
+
+                # Solo procesar si hay filtro de sheets_urls (NO incluir todo el dominio)
+                if not sheets_urls:
+                    continue
+
+                # Normalizar el pagePath de GA4 para comparar correctamente
+                normalized_page_path = normalize_url(f"{domain}{page_path}") if domain else normalize_url(page_path)
+
+                # Buscar coincidencia EXACTA con URLs del Sheet
                 match_found = False
-                if sheets_urls:
-                    # Normalizar el pagePath de GA4 para comparar correctamente
-                    normalized_page_path = normalize_url(f"{domain}{page_path}") if domain else page_path
-                    
-                    for sheet_url in sheets_urls:
-                        # Comparar URLs normalizadas exactamente o verificar si una contiene a la otra
-                        if (normalized_page_path == sheet_url or 
-                            page_path == sheet_url or 
-                            page_path in sheet_url or 
-                            sheet_url.endswith(page_path.lstrip('/')) or
-                            sheet_url == page_path.lstrip('/')):
-                            match_found = True
-                            break
-                else:
-                    match_found = True  # Si no hay filtro, incluir todo
-                
+                for sheet_url in sheets_urls:
+                    # Comparar URLs normalizadas EXACTAMENTE
+                    if normalized_page_path == sheet_url:
+                        match_found = True
+                        break
+
                 if match_found:
                     pageviews = int(row['metricValues'][0]['value'])
                     sessions = int(row['metricValues'][1]['value'])
                     users = int(row['metricValues'][2]['value'])
-                    
+
                     data.append({
                         'pagePath': page_path,
-                        'url_normalized': normalize_url(f"{domain}{page_path}") if domain else page_path,  # Normalizar con dominio completo
+                        'url_normalized': normalized_page_path,
                         'date': datetime.strptime(date_str, '%Y%m%d'),
                         'pageviews': pageviews,
                         'sessions': sessions,
