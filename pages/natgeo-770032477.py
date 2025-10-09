@@ -342,7 +342,7 @@ else:
                 "Proyección Mensual",
                 f"{projected_monthly:,.0f}",
                 delta=f"{projection_delta:,.0f}",
-                delta_color="normal" if projection_delta >= 0 else "inverse",
+                delta_color="normal",
                 help="Estimación de Page Views al final del mes según tendencia actual"
             )
 
@@ -667,7 +667,7 @@ else:
             with col1:
                 pv_data = growth_data['data']['pageviews']
                 growth_pct = pv_data['growth_percentage']
-                delta_color = "normal" if growth_pct >= 0 else "inverse"
+                delta_color = "normal"
                 st.metric(
                     "Page Views",
                     f"{pv_data['current']:,}",
@@ -678,7 +678,7 @@ else:
             with col2:
                 sessions_data = growth_data['data']['sessions']
                 growth_pct = sessions_data['growth_percentage']
-                delta_color = "normal" if growth_pct >= 0 else "inverse"
+                delta_color = "normal"
                 st.metric(
                     "Sesiones",
                     f"{sessions_data['current']:,}",
@@ -689,7 +689,7 @@ else:
             with col3:
                 users_data = growth_data['data']['users']
                 growth_pct = users_data['growth_percentage']
-                delta_color = "normal" if growth_pct >= 0 else "inverse"
+                delta_color = "normal"
                 st.metric(
                     "Usuarios",
                     f"{users_data['current']:,}",

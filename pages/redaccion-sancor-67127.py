@@ -342,7 +342,7 @@ else:
                 " Proyección Mensual",
                 f"{projected_monthly:,.0f}",
                 delta=f"{projection_delta:,.0f}",
-                delta_color="normal" if projection_delta >= 0 else "inverse",
+                delta_color="normal",
                 help="Estimación de Page Views al final del mes según tendencia actual"
             )
 
