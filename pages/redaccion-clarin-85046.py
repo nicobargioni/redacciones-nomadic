@@ -412,12 +412,23 @@ else:
 
         st.markdown("---")
 
-        # ==================== SECCIÓN 3: PERFORMANCE POR AUTOR ====================
-        st.markdown("##  Performance por Autor")
+        # ==================== SECCIÓN 3: PERFORMANCE POR AUTOR | MES EN CURSO ====================
+        st.markdown("##  Performance por Autor | Mes en curso")
 
         if not sheets_filtered.empty and 'autor' in merged_df.columns and 'screenPageViews' in merged_df.columns:
-            # Agrupar por autor y sumar pageviews
-            author_performance = merged_df.groupby('autor').agg({
+            # Filtrar datos del mes actual
+            merged_df_monthly = merged_df.copy()
+            if 'datePub' in merged_df_monthly.columns:
+                merged_df_monthly['datePub_dt'] = pd.to_datetime(merged_df_monthly['datePub'], format='%d/%m/%Y', errors='coerce')
+                current_month = datetime.now().month
+                current_year = datetime.now().year
+                merged_df_monthly = merged_df_monthly[
+                    (merged_df_monthly['datePub_dt'].dt.month == current_month) &
+                    (merged_df_monthly['datePub_dt'].dt.year == current_year)
+                ]
+
+            # Agrupar por autor y sumar pageviews del mes actual
+            author_performance = merged_df_monthly.groupby('autor').agg({
                 'screenPageViews': 'sum',
                 'url_normalized': 'count'
             }).reset_index()
@@ -438,7 +449,7 @@ else:
             ])
 
             fig_authors.update_layout(
-                title='Total Page Views por Autor',
+                title='Total Page Views por Autor - Mes en Curso',
                 xaxis_title='Autor',
                 yaxis_title='Page Views',
                 height=400
@@ -460,14 +471,15 @@ else:
             st.markdown("###  Performance Individual por Autor y Fecha")
 
             # Filtros
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                # Selector de autor
+                # Selector múltiple de autores
                 authors_list = sorted(merged_df['autor'].dropna().unique())
-                selected_author = st.selectbox(
-                    "Seleccionar Autor:",
+                selected_authors = st.multiselect(
+                    "Seleccionar Autor(es):",
                     options=authors_list,
+                    default=[authors_list[0]] if authors_list else [],
                     key="individual_author_selector_clarin"
                 )
 
@@ -498,96 +510,147 @@ else:
                     key="author_end_date_clarin"
                 )
 
-            # Filtrar datos por autor y fecha
-            author_data = merged_df[merged_df['autor'] == selected_author].copy()
+            with col4:
+                # Radio buttons para tipo de visualización
+                data_view_type = st.radio(
+                    "Tipo de datos:",
+                    options=["Data por día", "Data mensualizada"],
+                    key="data_view_type_clarin"
+                )
 
-            if 'datePub' in author_data.columns:
-                author_data['datePub'] = pd.to_datetime(author_data['datePub'], format='%d/%m/%Y', errors='coerce')
-                author_data = author_data[
-                    (author_data['datePub'].dt.date >= start_date) &
-                    (author_data['datePub'].dt.date <= end_date)
-                ]
+            if selected_authors:
+                # Filtrar datos por autores seleccionados y fecha
+                author_data = merged_df[merged_df['autor'].isin(selected_authors)].copy()
 
-            if not author_data.empty:
-                # Métricas del autor en el período
-                total_articles = len(author_data)
-                total_views = author_data['screenPageViews'].sum() if 'screenPageViews' in author_data.columns else 0
-                avg_views = total_views / total_articles if total_articles > 0 else 0
+                if 'datePub' in author_data.columns:
+                    author_data['datePub'] = pd.to_datetime(author_data['datePub'], format='%d/%m/%Y', errors='coerce')
+                    author_data = author_data[
+                        (author_data['datePub'].dt.date >= start_date) &
+                        (author_data['datePub'].dt.date <= end_date)
+                    ]
 
-                # Mostrar métricas
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Artículos Publicados", f"{total_articles:,}")
-                with col2:
-                    st.metric("Total Page Views", f"{total_views:,.0f}")
-                with col3:
-                    st.metric("Promedio por Artículo", f"{avg_views:,.0f}")
+                if not author_data.empty:
+                    # Métricas totales del período
+                    total_articles = len(author_data)
+                    total_views = author_data['screenPageViews'].sum() if 'screenPageViews' in author_data.columns else 0
+                    avg_views = total_views / total_articles if total_articles > 0 else 0
 
-                # Agrupar por fecha si existe la columna
-                if 'datePub' in author_data.columns and 'screenPageViews' in author_data.columns:
-                    daily_performance = author_data.groupby(author_data['datePub'].dt.date).agg({
-                        'screenPageViews': 'sum',
-                        'url_normalized': 'count'
-                    }).reset_index()
-                    daily_performance.columns = ['Fecha', 'Page Views', 'Artículos']
-                    daily_performance = daily_performance.sort_values('Fecha')
+                    # Mostrar métricas
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Artículos Publicados", f"{total_articles:,}")
+                    with col2:
+                        st.metric("Total Page Views", f"{total_views:,.0f}")
+                    with col3:
+                        st.metric("Promedio por Artículo", f"{avg_views:,.0f}")
 
-                    # Gráfico de línea temporal
-                    fig_author_time = go.Figure()
+                    # Visualización según tipo seleccionado
+                    if data_view_type == "Data por día":
+                        # Gráfico de líneas por día
+                        if 'datePub' in author_data.columns and 'screenPageViews' in author_data.columns:
+                            fig_author_time = go.Figure()
 
-                    fig_author_time.add_trace(go.Scatter(
-                        x=daily_performance['Fecha'],
-                        y=daily_performance['Page Views'],
-                        mode='lines+markers',
-                        name='Page Views',
-                        line=dict(color=media_config['color'], width=2),
-                        marker=dict(size=8),
-                        hovertemplate='<b>%{x}</b><br>Page Views: %{y:,.0f}<extra></extra>'
-                    ))
+                            # Crear una traza por cada autor
+                            colors = [media_config['color'], '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe', '#fd79a8', '#fdcb6e']
 
-                    fig_author_time.update_layout(
-                        title=f'Performance Diaria de {selected_author}',
-                        xaxis_title='Fecha',
-                        yaxis_title='Page Views',
-                        hovermode='x unified',
-                        height=400
-                    )
+                            for idx, author in enumerate(selected_authors):
+                                author_specific_data = author_data[author_data['autor'] == author].copy()
+                                daily_performance = author_specific_data.groupby(author_specific_data['datePub'].dt.date).agg({
+                                    'screenPageViews': 'sum',
+                                    'url_normalized': 'count'
+                                }).reset_index()
+                                daily_performance.columns = ['Fecha', 'Page Views', 'Artículos']
+                                daily_performance = daily_performance.sort_values('Fecha')
 
-                    st.plotly_chart(fig_author_time, use_container_width=True)
+                                fig_author_time.add_trace(go.Scatter(
+                                    x=daily_performance['Fecha'],
+                                    y=daily_performance['Page Views'],
+                                    mode='lines+markers',
+                                    name=author,
+                                    line=dict(color=colors[idx % len(colors)], width=2),
+                                    marker=dict(size=6),
+                                    hovertemplate=f'<b>{author}</b><br>%{{x}}<br>Page Views: %{{y:,.0f}}<extra></extra>'
+                                ))
 
-                    # Tabla detallada
-                    st.markdown("#### Detalle por Día")
+                            fig_author_time.update_layout(
+                                title=f'Performance Diaria - Comparación por Autor',
+                                xaxis_title='Fecha',
+                                yaxis_title='Page Views',
+                                hovermode='x unified',
+                                height=400,
+                                showlegend=True
+                            )
+
+                            st.plotly_chart(fig_author_time, use_container_width=True)
+
+                    else:  # Data mensualizada
+                        # Gráfico de barras por mes
+                        if 'datePub' in author_data.columns and 'screenPageViews' in author_data.columns:
+                            # Agregar columna de mes-año
+                            author_data['month_year'] = author_data['datePub'].dt.to_period('M').astype(str)
+
+                            # Agrupar por autor y mes
+                            monthly_performance = author_data.groupby(['autor', 'month_year']).agg({
+                                'screenPageViews': 'sum',
+                                'url_normalized': 'count'
+                            }).reset_index()
+                            monthly_performance.columns = ['Autor', 'Mes', 'Page Views', 'Artículos']
+
+                            # Crear gráfico de barras agrupadas
+                            fig_monthly = px.bar(
+                                monthly_performance,
+                                x='Mes',
+                                y='Page Views',
+                                color='Autor',
+                                barmode='group',
+                                title='Performance Mensualizada - Comparación por Autor',
+                                text='Page Views'
+                            )
+
+                            fig_monthly.update_traces(texttemplate='%{text:,.0f}', textposition='outside')
+                            fig_monthly.update_layout(
+                                xaxis_title='Mes',
+                                yaxis_title='Page Views',
+                                height=400,
+                                showlegend=True
+                            )
+
+                            st.plotly_chart(fig_monthly, use_container_width=True)
+
+                            # Tabla de datos mensuales
+                            st.markdown("#### Detalle Mensual por Autor")
+                            pivot_table = monthly_performance.pivot(index='Mes', columns='Autor', values='Page Views').fillna(0)
+                            st.dataframe(
+                                pivot_table.style.format('{:,.0f}'),
+                                use_container_width=True
+                            )
+
+                    # Tabla de artículos individuales
+                    st.markdown("#### Artículos en el Período")
+                    display_cols = ['datePub', 'autor', 'titulo', 'screenPageViews'] if 'titulo' in author_data.columns else ['datePub', 'autor', 'url_normalized', 'screenPageViews']
+                    author_articles = author_data[display_cols].sort_values('screenPageViews', ascending=False)
+
+                    # Renombrar columnas
+                    rename_dict = {
+                        'datePub': 'Fecha',
+                        'autor': 'Autor',
+                        'titulo': 'Título',
+                        'url_normalized': 'URL',
+                        'screenPageViews': 'Page Views'
+                    }
+                    author_articles = author_articles.rename(columns={k: v for k, v in rename_dict.items() if k in author_articles.columns})
+
                     st.dataframe(
-                        daily_performance.style.format({
+                        author_articles.style.format({
                             'Page Views': '{:,.0f}'
                         }),
                         use_container_width=True,
                         hide_index=True
                     )
-
-                # Tabla de artículos individuales
-                st.markdown("#### Artículos del Autor en el Período")
-                display_cols = ['datePub', 'titulo', 'screenPageViews'] if 'titulo' in author_data.columns else ['datePub', 'url_normalized', 'screenPageViews']
-                author_articles = author_data[display_cols].sort_values('screenPageViews', ascending=False)
-
-                # Renombrar columnas
-                rename_dict = {
-                    'datePub': 'Fecha',
-                    'titulo': 'Título',
-                    'url_normalized': 'URL',
-                    'screenPageViews': 'Page Views'
-                }
-                author_articles = author_articles.rename(columns={k: v for k, v in rename_dict.items() if k in author_articles.columns})
-
-                st.dataframe(
-                    author_articles.style.format({
-                        'Page Views': '{:,.0f}'
-                    }),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                else:
+                    st.warning(f"No hay datos para los autores seleccionados en el período")
             else:
-                st.warning(f"No hay datos para {selected_author} en el período seleccionado")
+                st.info("Selecciona al menos un autor para ver su performance")
         else:
             st.info("No hay datos de autores disponibles")
 
