@@ -650,7 +650,8 @@ else:
                 else:
                     st.warning(f"No hay datos para los autores seleccionados en el período")
             else:
-                st.info("Selecciona al menos un autor para ver su performance")else:
+                st.info("Selecciona al menos un autor para ver su performance")
+        else:
             st.info("No hay datos de autores disponibles")
 
         st.markdown("---")
