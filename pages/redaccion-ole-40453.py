@@ -303,8 +303,8 @@ else:
 
         st.markdown("---")
 
-        # ==================== SECCIÓN 2: PROGRESIÓN DEL OBJETIVO ====================
-        st.markdown("##  Progresión del Objetivo a lo largo del Mes")
+        # ==================== SECCIÓN 2: REAL VS OBJETIVO ====================
+        st.markdown("##  Real vs Objetivo")
 
         # Información adicional
         current_date = datetime.now()
@@ -403,7 +403,8 @@ else:
                 xaxis_title='Fecha',
                 yaxis_title='Page Views Acumulados',
                 hovermode='x unified',
-                height=400
+                height=400,
+                showlegend=True
             )
 
             st.plotly_chart(fig_progression, use_container_width=True)
@@ -449,7 +450,6 @@ else:
             ])
 
             fig_authors.update_layout(
-                title='Total Page Views por Autor - Mes en Curso',
                 xaxis_title='Autor',
                 yaxis_title='Page Views',
                 height=400
@@ -468,6 +468,7 @@ else:
             )
 
             # ==================== SUBSECCIÓN: PERFORMANCE INDIVIDUAL POR AUTOR ====================
+            st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("###  Performance Individual por Autor y Fecha")
 
             # Filtros
@@ -573,7 +574,6 @@ else:
                                 ))
 
                             fig_author_time.update_layout(
-                                title=f'Performance Diaria - Comparación por Autor',
                                 xaxis_title='Fecha',
                                 yaxis_title='Page Views',
                                 hovermode='x unified',
@@ -603,7 +603,6 @@ else:
                                 y='Page Views',
                                 color='Autor',
                                 barmode='group',
-                                title='Performance Mensualizada - Comparación por Autor',
                                 text='Page Views'
                             )
 
@@ -658,8 +657,9 @@ else:
 
         # ==================== SECCIÓN 4: TOP URLS ====================
         st.markdown("##  Top URLs según Page Views")
+        st.caption(f"Mostrando las 20 URLs con más pageviews del período seleccionado: {start_date_param} a {end_date_param}")
 
-        top_n = st.slider("Número de URLs a mostrar:", 5, 50, 20, key="top_urls_slider")
+        top_n = 20
 
         if 'screenPageViews' in merged_df.columns:
             # Seleccionar columnas relevantes para mostrar
@@ -692,7 +692,6 @@ else:
             ])
 
             fig_top.update_layout(
-                title=f'Top {top_n} URLs por Page Views',
                 xaxis_title='Page Views',
                 yaxis_title='URL',
                 height=max(400, top_n * 20)
@@ -713,27 +712,26 @@ else:
 
         # ==================== SECCIÓN 5: COMPARATIVA DOMINIO VS SHEET ====================
         st.markdown("##  Comparativa: Dominio Completo vs URLs del Sheet")
-        st.caption(f"Período de análisis: {start_date_param} a {end_date_param}")
+        st.caption(f"Período de análisis: Mes en curso")
 
-        # Obtener datos del dominio completo (sin home) usando el período seleccionado
-        # Convertir el período al formato adecuado si es necesario
-        if start_date_param.endswith("daysAgo"):
-            days = int(start_date_param.replace("daysAgo", ""))
-            period_start = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-        else:
-            period_start = start_date_param
+        # Obtener datos del mes en curso
+        current_month_start_comp = datetime.now().replace(day=1).strftime('%Y-%m-%d')
+        current_month_today_comp = datetime.now().strftime('%Y-%m-%d')
 
-        if end_date_param == "today":
-            period_end = datetime.now().strftime('%Y-%m-%d')
-        else:
-            period_end = end_date_param
+        # Cargar datos de GA4 del mes en curso
+        ga4_monthly_comp = get_ga4_data(
+            media_config['property_id'],
+            credentials_file,
+            start_date=current_month_start_comp,
+            end_date=current_month_today_comp
+        )
 
-        # Usar los datos de GA4 ya cargados para la comparativa
-        if ga4_df is not None and not ga4_df.empty:
-            # Calcular métricas del dominio completo desde ga4_df
-            domain_total_pv = ga4_df['screenPageViews'].sum()
+        # Usar los datos de GA4 del mes en curso para la comparativa
+        if ga4_monthly_comp is not None and not ga4_monthly_comp.empty:
+            # Calcular métricas del dominio completo desde ga4_monthly_comp
+            domain_total_pv = ga4_monthly_comp['screenPageViews'].sum()
             # Filtrar home page si existe
-            ga4_no_home = ga4_df[~ga4_df['pagePath'].isin(['/', '/index.html', '/home'])]
+            ga4_no_home = ga4_monthly_comp[~ga4_monthly_comp['pagePath'].isin(['/', '/index.html', '/home'])]
             domain_no_home_pv = ga4_no_home['screenPageViews'].sum()
             domain_pages = ga4_no_home['pagePath'].nunique()
 
@@ -751,8 +749,15 @@ else:
             domain_no_home_pv = pageviews_data['non_home_pageviews']
             domain_pages = pageviews_data['non_home_pages']
 
-            sheet_total_pv = merged_df['screenPageViews'].sum()
-            sheet_pages = len(merged_df)
+            # Calcular sheet_total_pv solo para el mes en curso
+            # Necesitamos mergear con los datos del mes actual
+            merged_monthly_comp = merge_sheets_with_ga4(sheets_filtered, ga4_monthly_comp, media_config['domain'])
+            if not merged_monthly_comp.empty and 'screenPageViews' in merged_monthly_comp.columns:
+                sheet_total_pv = merged_monthly_comp['screenPageViews'].sum()
+                sheet_pages = len(merged_monthly_comp)
+            else:
+                sheet_total_pv = 0
+                sheet_pages = 0
 
             col1, col2 = st.columns(2)
 
@@ -790,7 +795,6 @@ else:
                     comparison_data,
                     x='Categoría',
                     y='Total Page Views',
-                    title='Total Page Views: Dominio vs Sheet',
                     color='Categoría',
                     color_discrete_map={
                         'Dominio Completo\n(sin home)': '#808080',
@@ -806,7 +810,6 @@ else:
                     comparison_data,
                     x='Categoría',
                     y='Promedio por Página',
-                    title='Promedio Page Views por Página',
                     color='Categoría',
                     color_discrete_map={
                         'Dominio Completo\n(sin home)': '#808080',
@@ -965,7 +968,6 @@ else:
                 y='Valor',
                 color='Período',
                 barmode='group',
-                title=f'Comparación de Métricas: {growth_data["period_name"]}',
                 color_discrete_map={
                     'Actual': media_config['color'],
                     'Anterior': '#cccccc'
