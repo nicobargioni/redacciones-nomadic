@@ -1175,3 +1175,10 @@ def render_dashboard(config):
     st.markdown("---")
     icon_prefix = " " if config['page_type'] == 'redaccion' else ""
     st.caption(f"{icon_prefix}Dashboard de {media_config['name']} | Property ID: {config['property_id']} | Dominio: {config['domain']}")
+
+    # Sección de feedback (solo para páginas de redacción)
+    if config['page_type'] == 'redaccion':
+        st.markdown("---")
+        st.markdown("### Feedback")
+        st.markdown("Para dejar feedback sobre este dashboard, completar el siguiente formulario:")
+        st.markdown("[Formulario de Feedback](https://airtable.com/appQ79IgnggEMfKP8/pagzguXtfZMvq8MYM/form)")
